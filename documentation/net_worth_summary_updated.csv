@@ -1,0 +1,9 @@
+Asset Category,Description,Owner,Institution,Account Type,Current Value (USD),Net Value (USD)
+Real Estate,"Primary Residence - 123 Maple St, Palo Alto",Joint,-,Property,2800000,2000000
+Real Estate,Vacation Home - Lake Tahoe,Joint,-,Property,950000,650000
+Bank Account,Chase Checking Account,John,Chase,Checking,25000,25000
+Bank Account,Ally High-Yield Savings,John,Ally,Savings,60000,60000
+Liability,Primary Residence Mortgage,Joint,Chase,Mortgage,-800000,-800000
+Liability,Vacation Home Mortgage,Joint,Wells Fargo,Mortgage,-300000,-300000
+Private Investment,Stake in Small Business,John,N/A,Equity,1000000,1000000
+Private Investment,Private Real Estate Fund,John,N/A,Fund,500000,500000

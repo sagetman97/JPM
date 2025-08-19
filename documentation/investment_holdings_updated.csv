@@ -1,0 +1,14 @@
+Account Name,Custodian,Account Type,Security Ticker,Security Name,Asset Class,Quantity,Price,Market Value,Cost Basis,Unrealized Gain/Loss,Percent of Portfolio
+Roth IRA,Vanguard,Retirement,VTI,Vanguard Total Stock Market ETF,Equity,1500,230.1,345150.0,300000,45150.0,11.5
+Roth IRA,Vanguard,Retirement,VXUS,Vanguard Total Intl Stock ETF,Equity,2000,62.3,124600.0,100000,24600.0,4.2
+401(k),Fidelity,Retirement,FXAIX,Fidelity 500 Index Fund,Equity,5000,165.55,827750.0,700000,127750.0,27.5
+401(k),Fidelity,Retirement,FSPSX,Fidelity International Index Fund,Equity,3000,45.1,135300.0,120000,15300.0,4.5
+401(k),Fidelity,Retirement,FBNRX,Fidelity Bond Fund,Fixed Income,2000,10.25,20500.0,20000,500.0,0.7
+Brokerage,Schwab,Taxable,AAPL,Apple Inc.,Equity,400,195.22,78088.0,68000,10088.0,2.6
+Brokerage,Schwab,Taxable,GOOGL,Alphabet Inc.,Equity,300,132.05,39615.0,35000,4615.0,1.3
+Brokerage,Schwab,Taxable,VTI,Vanguard Total Stock Market ETF,Equity,1000,230.1,230100.0,210000,20100.0,7.7
+Brokerage,Schwab,Taxable,BND,Vanguard Total Bond Market ETF,Fixed Income,2000,75.4,150800.0,148000,2800.0,5.0
+SEP IRA,Fidelity,Retirement,QQQ,Invesco QQQ Trust,Equity,1000,380.25,380250.0,350000,30250.0,12.7
+SEP IRA,Fidelity,Retirement,AGG,iShares Core US Aggregate Bond,Fixed Income,1000,98.3,98300.0,95000,3300.0,3.3
+529 Plan,Vanguard,Education,VTI,Vanguard Total Stock Market ETF,Equity,200,230.1,46020.0,40000,6020.0,1.5
+529 Plan,Vanguard,Education,BND,Vanguard Total Bond Market ETF,Fixed Income,300,75.4,22620.0,21000,1620.0,0.8

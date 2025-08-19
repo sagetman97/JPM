@@ -1,0 +1,9 @@
+Account Type,Asset Class,Market Value,Current Value,Description
+Roth IRA,Equity,125000,125000,SPDR S&P 500 ETF
+401k,Equity,450000,450000,Vanguard Total Stock Market
+SEP IRA,Fixed Income,75000,75000,Vanguard Total Bond Market
+Brokerage,Taxable,200000,200000,Individual Stocks
+529 Plan,Education,50000,50000,College Savings
+Bank Account,Cash,25000,25000,Checking & Savings
+Real Estate,Property,500000,500000,Primary Residence
+Private Investment,Alternative,150000,150000,Private Equity Fund 
