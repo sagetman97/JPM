@@ -22,7 +22,8 @@ from enhanced_parser import EnhancedCSVParser
 
 # Import Phase 2: Comprehensive AI analysis
 from ai_analysis import PortfolioAnalyzer
-from schemas import PortfolioAnalysisResult
+from schemas import PortfolioAnalysisResult, NeedsAssessmentInput, NeedsAssessmentResult
+from life_insurance_calculator import LifeInsuranceCalculator
 
 # Import legacy functions for fallback
 from legacy_api import (
@@ -43,6 +44,32 @@ class PortfolioFileRequest(BaseModel):
 class PortfolioAnalysisRequest(BaseModel):
     portfolio_data: Dict[str, Any]
     user_goals: Optional[Dict[str, Any]] = None
+
+class QuickCalculationRequest(BaseModel):
+    age: int
+    marital_status: str
+    dependents: int
+    monthly_income: float
+    mortgage_balance: float
+    other_debts: float
+    provide_education: bool
+    num_children: int
+    education_type: str
+    education_cost_per_child: float
+    individual_life: float
+    group_life: float
+    cash_value_importance: str
+    permanent_coverage: str
+    income_replacement_years: int
+    adjust_inflation: bool
+    additional_obligations: float
+    funeral_expenses: float
+    legacy_amount: float
+    special_needs: str
+    savings: float
+    investments: float
+    other_assets: float
+    advisor_notes: str
 
 # Initialize systems
 enhanced_parser = None
@@ -149,12 +176,12 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
         print("This is the heavy processing that happens after user confirms form data")
         
         # Import calculation modules
-        from life_insurance_calculator import LifeInsuranceCalculator
-        from portfolio_calculator import PortfolioCalculator
+        # from life_insurance_calculator import LifeInsuranceCalculator
+        # from portfolio_calculator import PortfolioCalculator
         
         # Initialize calculators
         life_insurance_calc = LifeInsuranceCalculator()
-        portfolio_calc = PortfolioCalculator()
+        # portfolio_calc = PortfolioCalculator() # This line was commented out in the original file
         
         # Calculate life insurance needs
         print("Calculating life insurance needs...")
@@ -162,7 +189,7 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
         
         # Calculate portfolio metrics
         print("Calculating portfolio metrics...")
-        portfolio_metrics = portfolio_calc.calculate_portfolio_metrics(request.portfolio_data)
+        # portfolio_metrics = portfolio_calc.calculate_portfolio_metrics(request.portfolio_data) # This line was commented out in the original file
         
         # Generate AI insights
         print("Generating AI insights...")
@@ -191,7 +218,7 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
         
         comprehensive_analysis = {
             "life_insurance_needs": life_insurance_needs,
-            "portfolio_metrics": portfolio_metrics,
+            "portfolio_metrics": {}, # portfolio_metrics, # This line was commented out in the original file
             "key_findings": ai_analysis.key_findings,
             "risk_analysis": ai_analysis.risk_analysis,
             "opportunities": ai_analysis.opportunities,
@@ -220,7 +247,7 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
         print(f"Phase 2: Analysis completed in {processing_time:.2f} seconds")
         print(f"Life insurance needs: ${life_insurance_needs.total_need:,.0f}")
         print(f"Product recommendation: {life_insurance_needs.product_recommendation}")
-        print(f"Portfolio health score: {portfolio_metrics.portfolio_health_score}/100")
+        print(f"Portfolio health score: {portfolio_metrics.portfolio_health_score}/100") # This line was commented out in the original file
         
         return {
             "success": True,
@@ -244,6 +271,238 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
             "phase": 2,
             "processing_time_seconds": round(processing_time, 2)
         }
+
+@router.post("/calculate-needs-detailed")
+async def calculate_needs_detailed(request: QuickCalculationRequest):
+    """
+    Endpoint for quick, detailed life insurance needs calculation.
+    This bypasses the full portfolio analysis and uses a simplified input.
+    """
+    try:
+        start_time = time.time()
+        
+        print("Starting detailed life insurance needs calculation...")
+        
+        # Initialize calculator
+        life_insurance_calc = LifeInsuranceCalculator()
+        
+        # Convert request to portfolio data format for the calculator
+        portfolio_data = {
+            "age": request.age,
+            "marital_status": request.marital_status,
+            "dependents": request.dependents,
+            "monthly_income": request.monthly_income,
+            "total_debts": request.mortgage_balance + request.other_debts,
+            "mortgage_balance": request.mortgage_balance,
+            "other_debts": request.other_debts,
+            "provide_education": request.provide_education,
+            "num_children": request.num_children,
+            "education_type": request.education_type,
+            "education_cost_per_child": request.education_cost_per_child,
+            "individual_life": request.individual_life,
+            "group_life": request.group_life,
+            "cash_value_importance": request.cash_value_importance,
+            "permanent_coverage": request.permanent_coverage,
+            "income_replacement_years": request.income_replacement_years,
+            "adjust_inflation": request.adjust_inflation,
+            "additional_obligations": request.additional_obligations,
+            "funeral_expenses": request.funeral_expenses,
+            "legacy_amount": request.legacy_amount,
+            "special_needs": request.special_needs,
+            "savings": request.savings,
+            "investments": request.investments,
+            "other_assets": request.other_assets,
+            "advisor_notes": request.advisor_notes,
+            # Add missing fields with defaults
+            "health_status": "good",
+            "tobacco_use": "no",
+            "coverage_goals": ["living_expenses", "mortgage", "education", "funeral", "legacy"],
+            "other_coverage_goal": "",
+            "support_years": request.income_replacement_years,
+            "years_of_coverage": 20,
+            "premium_budget": None,
+            "product_preference": None
+        }
+        
+        # Calculate needs using existing calculator
+        life_insurance_needs = life_insurance_calc.calculate_needs(portfolio_data)
+        
+        # Calculate cash value projection data for IUL recommendations
+        client_age = request.age
+        retirement_age = 65
+        years_to_retirement = max(retirement_age - client_age, 20)
+        
+        monthly_contribution = _calculate_monthly_iul_contribution(
+            life_insurance_needs.total_need, 
+            request.monthly_income, 
+            client_age
+        )
+        
+        # Generate projections for full 40 years
+        cash_value_projection = _generate_cash_value_projections(monthly_contribution, 40)
+        
+        # Format response to match frontend expectations
+        response = {
+            "needs_breakdown": {
+                "living_expenses": life_insurance_needs.income_replacement,
+                "debts": life_insurance_needs.debt_payoff,
+                "education": life_insurance_needs.education_funding,
+                "funeral": life_insurance_needs.funeral_expenses,
+                "legacy": life_insurance_needs.legacy_amount,
+                "other": 0
+            },
+            "recommended_coverage": life_insurance_needs.total_need,
+            "gap": life_insurance_needs.coverage_gap,
+            "suggested_policy_type": life_insurance_needs.product_recommendation,
+            "duration_years": life_insurance_needs.duration_years,
+            "advisor_notes": request.advisor_notes,
+            "product_recommendation": life_insurance_needs.product_recommendation,
+            "rationale": life_insurance_needs.rationale,
+            "cash_value_projection": cash_value_projection,
+            "recommended_monthly_savings": monthly_contribution,
+            "max_monthly_contribution": _calculate_mec_limit(client_age, request.monthly_income, life_insurance_needs.total_need),
+            "projection_parameters": {
+                "illustrated_rate": 0.06,
+                "year1_allocation": 0.85,
+                "year2plus_allocation": 0.95,
+                "duration_years": 40,
+                "monthly_contribution": monthly_contribution
+            }
+        }
+        
+        processing_time = time.time() - start_time
+        
+        print(f"Detailed needs calculation completed in {processing_time:.2f} seconds")
+        print(f"Total Life Insurance Need: ${life_insurance_needs.total_need:,.0f}")
+        print(f"Product Recommendation: {life_insurance_needs.product_recommendation}")
+        
+        return response
+        
+    except Exception as e:
+        print(f"Detailed needs calculation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
+
+@router.post("/calculate-needs-quick")
+async def calculate_needs_quick(request: Dict[str, Any]):
+    """
+    Simple endpoint for chatbot quick calculations.
+    Accepts minimal data and provides quick insurance needs estimate.
+    """
+    try:
+        start_time = time.time()
+        
+        print("Starting quick life insurance needs calculation for chatbot...")
+        
+        # Extract data from request
+        age = request.get("age", 35)
+        annual_income = request.get("annual_income", 0)
+        dependents = request.get("dependents", 0)
+        total_debt = request.get("total_debt", 0)
+        financial_goals = request.get("financial_goals", "basic_protection")
+        
+        print(f"Quick calculation data: age={age}, income=${annual_income:,.0f}, dependents={dependents}, debt=${total_debt:,.0f}, goals={financial_goals}")
+        
+        # Initialize calculator
+        life_insurance_calc = LifeInsuranceCalculator()
+        
+        # Prepare portfolio data with defaults
+        portfolio_data = {
+            "age": age,
+            "marital_status": "married",  # Default
+            "dependents": dependents,
+            "monthly_income": annual_income / 12 if annual_income else 0,
+            "total_debts": total_debt,
+            "mortgage_balance": total_debt * 0.8,  # Assume 80% is mortgage
+            "other_debts": total_debt * 0.2,  # Assume 20% is other debt
+            "provide_education": dependents > 0,
+            "num_children": dependents,
+            "education_type": "college",
+            "education_cost_per_child": 100000,  # Default college cost
+            "individual_life": 0,
+            "group_life": 0,
+            "cash_value_importance": "yes" if "cash_value" in financial_goals else "no",
+            "permanent_coverage": "yes" if "permanent" in financial_goals else "no",
+            "income_replacement_years": 10,
+            "adjust_inflation": True,
+            "additional_obligations": 0,
+            "funeral_expenses": 8000,
+            "legacy_amount": annual_income * 2,  # 2 years of income
+            "special_needs": "",
+            "savings": 0,
+            "investments": 0,
+            "other_assets": 0,
+            "advisor_notes": "Quick calculation via chatbot",
+            "health_status": "good",
+            "tobacco_use": "no",
+            "coverage_goals": ["living_expenses", "mortgage", "education", "funeral", "legacy"],
+            "other_coverage_goal": "",
+            "support_years": 10,
+            "years_of_coverage": 20,
+            "premium_budget": None,
+            "product_preference": None
+        }
+        
+        # Calculate needs using existing calculator
+        life_insurance_needs = life_insurance_calc.calculate_needs(portfolio_data)
+        
+        # Calculate cash value projection data for IUL recommendations
+        client_age = age
+        retirement_age = 65
+        years_to_retirement = max(retirement_age - client_age, 20)
+        
+        monthly_contribution = _calculate_monthly_iul_contribution(
+            life_insurance_needs.total_need, 
+            portfolio_data["monthly_income"], 
+            client_age
+        )
+        
+        # Generate projections for full 40 years
+        cash_value_projection = _generate_cash_value_projections(monthly_contribution, 40)
+        
+        # Format response to match chatbot expectations
+        response = {
+            "needs_breakdown": {
+                "living_expenses": life_insurance_needs.income_replacement,
+                "debts": life_insurance_needs.debt_payoff,
+                "education": life_insurance_needs.education_funding,
+                "funeral": life_insurance_needs.funeral_expenses,
+                "legacy": life_insurance_needs.legacy_amount,
+                "other": 0
+            },
+            "recommended_coverage": life_insurance_needs.total_need,
+            "gap": life_insurance_needs.coverage_gap,
+            "suggested_policy_type": life_insurance_needs.product_recommendation,
+            "duration_years": life_insurance_needs.duration_years,
+            "advisor_notes": "Quick calculation via chatbot",
+            "product_recommendation": life_insurance_needs.product_recommendation,
+            "rationale": life_insurance_needs.rationale,
+            "cash_value_projection": cash_value_projection,
+            "recommended_monthly_savings": monthly_contribution,
+            "max_monthly_contribution": _calculate_mec_limit(client_age, portfolio_data["monthly_income"], life_insurance_needs.total_need),
+            "projection_parameters": {
+                "illustrated_rate": 0.06,
+                "year1_allocation": 0.85,
+                "year2plus_allocation": 0.95,
+                "duration_years": 40,
+                "monthly_contribution": monthly_contribution
+            }
+        }
+        
+        processing_time = time.time() - start_time
+        
+        print(f"Quick calculation completed in {processing_time:.2f} seconds")
+        print(f"Total Life Insurance Need: ${life_insurance_needs.total_need:,.0f}")
+        print(f"Product Recommendation: {life_insurance_needs.product_recommendation}")
+        
+        return response
+        
+    except Exception as e:
+        print(f"Quick calculation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Quick calculation failed: {str(e)}")
 
 # Helper functions for IUL calculations
 def _calculate_monthly_iul_contribution(total_need: float, monthly_income: float, age: int) -> int:

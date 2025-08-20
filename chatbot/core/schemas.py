@@ -17,12 +17,16 @@ class IntentCategory(str, Enum):
     CLIENT_ASSESSMENT_SUPPORT = "client_assessment_support"
     PRODUCT_COMPARISON = "product_comparison"
     SCENARIO_ANALYSIS = "scenario_analysis"
+    GENERAL_FINANCIAL_ADVICE = "general_financial_advice"
+    CALCULATOR_SELECTION_CHOICE = "calculator_selection_choice"
+    CALCULATOR_CHOICE_SELECTED = "calculator_choice_selected"
 
 class CalculatorType(str, Enum):
     """Types of insurance calculators"""
     QUICK = "quick"
     DETAILED = "detailed"
     PORTFOLIO = "portfolio"
+    NONE = "none"
 
 class RouteType(str, Enum):
     """Types of routing decisions"""
@@ -31,6 +35,7 @@ class RouteType(str, Enum):
     QUICK_CALCULATOR = "quick_calculator"
     EXTERNAL_TOOL = "external_tool"
     BASE_LLM = "base_llm"
+    CALCULATOR_SELECTION = "calculator_selection"
 
 class KnowledgeLevel(str, Enum):
     """User knowledge levels"""
@@ -55,6 +60,9 @@ class IntentResult(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
     reasoning: str = Field(..., description="Reasoning for classification")
     follow_up_clarification: Optional[List[str]] = Field(None, description="Questions to confirm understanding")
+    needs_external_search: bool = Field(False, description="Whether this query needs external search supplementation")
+    needs_calculator_selection: bool = Field(False, description="Whether user needs to choose calculator type")
+    suggested_calculator: Optional[str] = Field(None, description="Suggested calculator type based on semantic analysis")
 
 class RoutingDecision(BaseModel):
     """Routing decision for a query"""
@@ -63,6 +71,7 @@ class RoutingDecision(BaseModel):
     reasoning: str = Field(..., description="Reasoning for routing decision")
     tool_type: Optional[str] = Field(None, description="Type of tool if external tool route")
     session_id: Optional[str] = Field(None, description="Session ID for tool integration")
+    metadata: Optional[Dict[str, Any]] = Field(default={}, description="Additional metadata for routing decisions")
 
 class ConversationContext(BaseModel):
     """Context for conversation understanding"""
@@ -71,8 +80,17 @@ class ConversationContext(BaseModel):
     knowledge_level: KnowledgeLevel = Field(default=KnowledgeLevel.BEGINNER, description="User's knowledge level")
     semantic_themes: List[str] = Field(default=[], description="Themes from conversation")
     user_goals: List[str] = Field(default=[], description="User's expressed goals")
-    current_topic: Optional[str] = Field(None, description="Current conversation topic")
+    current_topic: Optional[str] = Field(default=None, description="Current conversation topic")
     previous_calculations: List[Dict[str, Any]] = Field(default=[], description="Previous calculation results")
+    client_context: Optional[str] = Field(default="personal", description="Whether this is personal or client assessment")
+    needs_external_search: bool = Field(default=False, description="Whether external search is needed for current query")
+    current_intent: Optional[IntentResult] = Field(default=None, description="Current intent for search decision logic")
+    
+    # NEW: Calculator session management
+    calculator_session: Optional[Dict[str, Any]] = Field(default=None, description="Active calculator session state")
+    calculator_type: Optional[CalculatorType] = Field(default=None, description="Selected calculator type")
+    calculator_state: Optional[str] = Field(default=None, description="Current calculator state: 'selecting', 'active', 'completed'")
+    
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Context creation time")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update time")
 
@@ -150,4 +168,21 @@ class ChatSession(BaseModel):
     context: ConversationContext = Field(..., description="Session context")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Session creation time")
     last_activity: datetime = Field(default_factory=datetime.utcnow, description="Last activity time")
-    status: str = Field(default="active", description="Session status") 
+    status: str = Field(default="active", description="Session status")
+    
+    def add_message(self, message: ChatMessage):
+        """Add a message to the session"""
+        self.messages.append(message)
+        self.last_activity = datetime.utcnow()
+    
+    def get_context(self) -> ConversationContext:
+        """Get the session context"""
+        return self.context
+    
+    def update_context(self, **kwargs):
+        """Update the session context"""
+        for key, value in kwargs.items():
+            if hasattr(self.context, key):
+                setattr(self.context, key, value)
+        self.context.updated_at = datetime.utcnow()
+        self.last_activity = datetime.utcnow() 

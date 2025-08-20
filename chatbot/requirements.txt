@@ -1,4 +1,4 @@
-# Robo-Advisor Chatbot Dependencies
+# Robo-Advisor Chatbot Dependencies (Port 8001)
 
 # Core FastAPI and async support
 fastapi==0.104.1
@@ -9,8 +9,8 @@ websockets==12.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
-# OpenAI integration
-openai==1.3.7
+# OpenAI integration (newer version for chatbot)
+openai>=1.99.9
 
 # Vector database
 qdrant-client==1.7.0
@@ -21,6 +21,9 @@ python-docx==1.1.0
 openpyxl==3.1.2
 pandas==2.1.4
 
+# External search
+tavily-python==0.3.1
+
 # Utilities
 python-multipart==0.0.6
 python-dotenv==1.0.0
@@ -28,4 +31,4 @@ python-dotenv==1.0.0
 # Development and testing
 pytest==7.4.3
 pytest-asyncio==0.21.1
-httpx==0.25.2 
+httpx>=0.25.0 

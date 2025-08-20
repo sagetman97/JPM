@@ -58,7 +58,9 @@ export default function RoboAdvisorPage() {
 
   const connectWebSocket = () => {
     try {
-      const ws = new WebSocket(`ws://localhost:8000/chatbot/ws/chat/${sessionId}`);
+      const wsUrl = `ws://localhost:8001/ws/chat/${sessionId}`;
+      console.log('Attempting to connect to WebSocket:', wsUrl);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -87,6 +89,8 @@ export default function RoboAdvisorPage() {
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        console.error('WebSocket readyState:', ws.readyState);
+        console.error('WebSocket URL:', ws.url);
         setIsConnected(false);
       };
     } catch (error) {
@@ -138,16 +142,17 @@ export default function RoboAdvisorPage() {
 
     // Send message through WebSocket
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
+      const message = {
         type: 'chat_message',
         content: inputValue,
-        session_id: sessionId,
         timestamp: new Date().toISOString()
-      }));
+      };
+      console.log('Sending WebSocket message:', message);
+      wsRef.current.send(JSON.stringify(message));
     } else {
       // Fallback to HTTP API if WebSocket is not available
       try {
-        const response = await fetch('http://localhost:8000/chatbot/api/chat/process', {
+        const response = await fetch('http://localhost:8001/api/chat/process', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -207,11 +212,41 @@ export default function RoboAdvisorPage() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       console.log('Files uploaded:', files);
-      // TODO: Implement file upload to backend
+      
+      for (const file of Array.from(files)) {
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('session_id', sessionId);
+          
+          const uploadResponse = await fetch('http://localhost:8001/api/chat/file/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (uploadResponse.ok) {
+            const result = await uploadResponse.json();
+            console.log('File uploaded successfully:', result);
+            
+            // Add file info to chat
+            const fileMessage: ChatMessage = {
+              id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              type: 'assistant',
+              content: `📎 File "${file.name}" uploaded successfully. You can now ask me questions about this file.`,
+              timestamp: new Date()
+            };
+            setMessages(prev => [...prev, fileMessage]);
+          } else {
+            console.error('File upload failed:', uploadResponse.statusText);
+          }
+        } catch (error) {
+          console.error('Error uploading file:', error);
+        }
+      }
     }
   };
 
@@ -225,13 +260,43 @@ export default function RoboAdvisorPage() {
     setIsDragOver(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       console.log('Files dropped:', files);
-      // TODO: Implement file drop to backend
+      
+      for (const file of Array.from(files)) {
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('session_id', sessionId);
+          
+          const uploadResponse = await fetch('http://localhost:8001/api/chat/file/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (uploadResponse.ok) {
+            const result = await uploadResponse.json();
+            console.log('File dropped successfully:', result);
+            
+            // Add file info to chat
+            const fileMessage: ChatMessage = {
+              id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              type: 'assistant',
+              content: `📎 File "${file.name}" uploaded successfully via drag & drop. You can now ask me questions about this file.`,
+              timestamp: new Date()
+            };
+            setMessages(prev => [...prev, fileMessage]);
+          } else {
+            console.error('File drop failed:', uploadResponse.statusText);
+          }
+        } catch (error) {
+          console.error('Error dropping file:', error);
+        }
+      }
     }
   };
 
@@ -293,8 +358,23 @@ export default function RoboAdvisorPage() {
                       </div>
                     )}
                     <div className="flex-1">
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                        {message.content}
+                      <div className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                        message.type === 'assistant' ? 'text-gray-800' : 'text-white'
+                      }`}>
+                        {message.type === 'assistant' ? (
+                          <div dangerouslySetInnerHTML={{ 
+                            __html: message.content
+                              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                              .replace(/### (.*?)\n/g, '<h3 class="text-lg font-semibold mb-2">$1</h3>')
+                              .replace(/## (.*?)\n/g, '<h2 class="text-xl font-semibold mb-3">$1</h2>')
+                              .replace(/# (.*?)\n/g, '<h1 class="text-2xl font-bold mb-4">$1</h1>')
+                              .replace(/\n\n/g, '<br><br>')
+                              .replace(/\n/g, '<br>')
+                          }} />
+                        ) : (
+                          message.content
+                        )}
                       </div>
                       {message.disclaimers && message.disclaimers.length > 0 && (
                         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -318,7 +398,7 @@ export default function RoboAdvisorPage() {
             {/* Typing Indicator */}
             {isTyping && (
               <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl px-5 py-4 bg-white shadow-sm border border-gray-100">
+                <div className="max-w-[85%] rounded-2xl px-5 py-4 bg-white shadow-sm border border-gray-100 text-gray-800">
                   <div className="flex items-center space-x-2">
                     <div className="bg-gradient-to-br from-[#1B365D] to-[#2C5282] rounded-full p-3 flex-shrink-0 shadow-lg">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

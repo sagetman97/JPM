@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import shutil
 from datetime import datetime
-from openai import OpenAI
+from openai import AsyncOpenAI
 from .schemas import FileUpload, ConversationContext
 from .config import config
 
@@ -17,7 +17,7 @@ class FileProcessor:
     """Handles file upload, processing, and context-aware analysis"""
     
     def __init__(self):
-        self.llm = OpenAI(
+        self.llm = AsyncOpenAI(
             api_key=config.openai_api_key
         )
         self.upload_dir = Path("uploads")

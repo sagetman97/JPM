@@ -13,7 +13,38 @@ We are building a **human-feeling conversational AI** that specializes in life i
 - **Compliance-first** approach with legal guardrails
 - **Semantic understanding** throughout the entire architecture
 
-## 🏗️ **Simplified Architecture**
+## 🏗️ **Two-VM Architecture Strategy**
+
+### **Why Two Separate VMs?**
+Our existing portfolio analysis and life insurance tools have **fundamental dependency conflicts** with the new chatbot requirements:
+- **Existing System (Port 8000)**: Uses older `openai==1.3.7`, `pydantic<2.0`, `numpy/pandas` versions
+- **New Chatbot (Port 8001)**: Requires newer `openai>=1.99.9`, `pydantic>=2.0`, `langchain` ecosystem
+
+### **VM Configuration:**
+```
+VM 1 (Port 8000): Existing Portfolio Analysis & Life Insurance Tools
+├── Portfolio Assessment (CSV parsing, AI analysis)
+├── Life Insurance Calculator
+├── Assessment Forms
+├── Existing APIs and functionality
+└── Dependencies: openai==1.3.7, pydantic<2.0, numpy/pandas
+
+VM 2 (Port 8001): New Robo-Advisor Chatbot
+├── Semantic Intent Classification
+├── Smart Router & RAG System
+├── Calculator Selection & Integration
+├── File Processing & Analysis
+├── WebSocket Chat Interface
+└── Dependencies: openai>=1.99.9, pydantic>=2.0, langchain ecosystem
+```
+
+### **Integration Strategy:**
+- **Seamless User Experience**: Users interact with chatbot on Port 8001
+- **Tool Integration**: Chatbot routes to existing tools on Port 8000 via HTTP APIs
+- **Report Return**: Completed tool reports sent back to chatbot for in-chat Q&A
+- **Context Preservation**: Session management across both systems
+
+## 🧠 **Simplified Architecture**
 
 ```
 User Query → Intent Classification → Smart Router → Response Generation → Quality Check → Compliance Review → Final Response
@@ -59,13 +90,13 @@ User Query → Intent Classification → Smart Router → Response Generation �
    - Immediate results and basic coverage recommendation
    - Best for: Quick estimates, initial discussions, basic planning
 
-2. **New Client Detailed Calculator** (External Tool)
+2. **New Client Detailed Calculator** (External Tool - Port 8000)
    - 50+ comprehensive questions
    - Opens in new tab/popup with existing assessment form
    - Robust output report sent back to chatbot
    - Best for: Client assessments, detailed planning, comprehensive analysis
 
-3. **Portfolio Analysis Calculator** (External Tool)
+3. **Portfolio Analysis Calculator** (External Tool - Port 8000)
    - Portfolio-focused insurance analysis
    - Integrates with existing portfolio assessment tool
    - Detailed report with portfolio context
@@ -116,18 +147,18 @@ class QuickCalculatorAgent:
         # Natural language results presentation
 ```
 
-### **Complex Tools (External Integration):**
+### **Complex Tools (External Integration - Port 8000):**
 ```python
 class ExternalToolIntegrator:
     async def route_to_external_tool(self, tool_type: str, context: ConversationContext) -> ToolResponse:
-        # Generate unique link to existing tool page
+        # Generate unique link to existing tool page on Port 8000
         # Open in new tab/popup
         # Handle report return via webhook
         # Enable in-chat Q&A of returned reports
 ```
 
 ### **Report Integration:**
-- **Webhook system** for receiving completed reports
+- **Webhook system** for receiving completed reports from Port 8000
 - **In-chat file download** and viewing
 - **Report Q&A** using RAG on report content
 - **Context preservation** across tool interactions
@@ -174,29 +205,31 @@ class ComplianceAgent:
 
 ## 🚀 **Implementation Phases**
 
-### **Phase 1: Core Infrastructure (Weeks 1-2)**
-- Backend WebSocket/SSE setup
-- Basic LLM integration
-- Intent classification system
-- Simple response generation
+### **Phase 1: Core Infrastructure & Two-VM Setup (Weeks 1-2)**
+- ✅ **COMPLETED**: Backend WebSocket/SSE setup
+- ✅ **COMPLETED**: Basic LLM integration
+- ✅ **COMPLETED**: Intent classification system
+- ✅ **COMPLETED**: Simple response generation
+- ✅ **COMPLETED**: Two-VM architecture setup
+- ✅ **COMPLETED**: Chatbot API structure
 
 ### **Phase 2: RAG & Search (Weeks 3-4)**
-- Vector database setup
-- Document ingestion pipeline
-- External search integration
-- Quality evaluation system
+- 🔄 **IN PROGRESS**: Vector database setup (Qdrant)
+- 🔄 **IN PROGRESS**: Document ingestion pipeline
+- 🔄 **IN PROGRESS**: External search integration
+- 🔄 **IN PROGRESS**: Quality evaluation system
 
 ### **Phase 3: Tool Integration (Weeks 5-6)**
-- Calculator selection logic
-- External tool routing
-- Report integration system
-- Enhanced retrieval methods
+- 🔄 **IN PROGRESS**: Calculator selection logic
+- 🔄 **IN PROGRESS**: External tool routing to Port 8000
+- 🔄 **IN PROGRESS**: Report integration system
+- 🔄 **IN PROGRESS**: Enhanced retrieval methods
 
 ### **Phase 4: Quality & Compliance (Weeks 7-8)**
-- Advanced evaluation metrics
-- Quality improvement agents
-- Compliance review system
-- Performance optimization
+- 📋 **PLANNED**: Advanced evaluation metrics
+- 📋 **PLANNED**: Quality improvement agents
+- 📋 **PLANNED**: Compliance review system
+- 📋 **PLANNED**: Performance optimization
 
 ## 🎨 **User Experience Design**
 
@@ -219,7 +252,7 @@ class ComplianceAgent:
 
 ## 🔧 **Technical Stack**
 
-### **Backend:**
+### **Backend (Port 8001 - New VM):**
 - **FastAPI** with WebSocket/SSE support
 - **LangChain** for LLM orchestration
 - **LangGraph** for workflow management
@@ -266,5 +299,28 @@ class ComplianceAgent:
 4. **Quality Assurance**: Multi-layer evaluation with agent-based improvement
 5. **Compliance-First**: Built-in legal guardrails and regulatory compliance
 6. **Seamless Integration**: Works with existing tools and workflows
+7. **Two-VM Architecture**: Resolves dependency conflicts while maintaining functionality
 
-This implementation plan focuses on building a sophisticated, human-feeling chatbot that makes intelligent decisions about information sources, maintains high quality responses, and ensures compliance with financial regulations - all while serving the specific needs of financial advisors through deep semantic understanding and natural conversation flow. 
+## 🔄 **Current Status & Next Steps**
+
+### **What's Already Built:**
+- ✅ **Complete chatbot backend architecture** with all core components
+- ✅ **Intent classification system** with semantic understanding
+- ✅ **Smart router** with calculator selection logic
+- ✅ **Quick calculator agent** for in-chat calculations
+- ✅ **File processing system** for uploads and analysis
+- ✅ **RAG system foundation** with Qdrant integration
+- ✅ **External search system** with Tavily integration
+- ✅ **Tool integrator** for external tool routing
+- ✅ **WebSocket API** for real-time chat
+- ✅ **Quality evaluation framework** with RAGAS integration
+
+### **What's Next:**
+1. **Complete Qdrant setup** and document ingestion
+2. **Test external tool routing** to Port 8000
+3. **Implement report return system** from tools
+4. **Add compliance agent** and legal guardrails
+5. **Performance testing** and optimization
+6. **End-to-end testing** of complete user flows
+
+This implementation plan focuses on building a sophisticated, human-feeling chatbot that makes intelligent decisions about information sources, maintains high quality responses, and ensures compliance with financial regulations - all while serving the specific needs of financial advisors through deep semantic understanding and natural conversation flow. The two-VM architecture ensures we can maintain existing functionality while building the new chatbot with modern dependencies. 

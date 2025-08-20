@@ -3,26 +3,56 @@
 
 ## 🏗️ **System Architecture Overview**
 
+### **Two-VM Architecture for Dependency Resolution**
+
+Our architecture uses **two separate virtual machines** to resolve fundamental dependency conflicts between existing tools and new chatbot requirements:
+
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Frontend      │    │    Backend       │    │   External      │
-│   (Next.js)     │◄──►│   (FastAPI)      │◄──►│   Services      │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Chat UI       │    │  Chat Engine     │    │   OpenAI API    │
-│   Components    │    │  & Orchestration │    │   Tavily API    │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   File Upload   │    │   Vector DB      │    │   Existing      │
-│   & Processing  │    │   (Qdrant)       │    │   Tool APIs     │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           VM 1 (Port 8000)                                │
+│                    Existing Portfolio Analysis Tools                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • Portfolio Assessment (CSV parsing, AI analysis)                         │
+│ • Life Insurance Calculator                                               │
+│ • Assessment Forms & APIs                                                 │
+│ • Dependencies: openai==1.3.7, pydantic<2.0, numpy/pandas                │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ HTTP API Calls
+                                    │ (Tool Integration)
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           VM 2 (Port 8001)                                │
+│                        New Robo-Advisor Chatbot                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • Semantic Intent Classification                                          │
+│ • Smart Router & RAG System                                              │
+│ • Calculator Selection & Integration                                     │
+│ • File Processing & Analysis                                             │
+│ • WebSocket Chat Interface                                               │
+│ • Dependencies: openai>=1.99.9, pydantic>=2.0, langchain ecosystem      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ WebSocket/HTTP
+                                    │ (User Interface)
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Frontend (Port 3000)                            │
+│                              Next.js App                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • Robo-Advisor Chat Interface                                            │
+│ • Portfolio Assessment Forms                                             │
+│ • Life Insurance Assessment Forms                                        │
+│ • Dashboard & Navigation                                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### **Integration Flow:**
+1. **User interacts** with chatbot on Port 8001
+2. **Chatbot routes** to appropriate tools on Port 8000 when needed
+3. **Tools complete** analysis and send reports back to chatbot
+4. **Chatbot provides** in-chat Q&A of returned reports
+5. **Seamless experience** across both systems
 
 ## 🧠 **Core Architecture: Semantic Understanding Flow**
 
@@ -241,7 +271,7 @@ class SemanticResponseGenerator:
 
 ## 🧮 **Calculator Integration Architecture**
 
-### **Quick Calculator (In-Chat)**
+### **Quick Calculator (In-Chat - Port 8001)**
 ```python
 class QuickCalculatorAgent:
     """Handles quick insurance needs calculation in-chat"""
@@ -309,20 +339,20 @@ class QuickCalculatorAgent:
         return response
 ```
 
-### **External Tool Integration**
+### **External Tool Integration (Port 8000)**
 ```python
 class ExternalToolIntegrator:
-    """Handles routing to external tools and report integration"""
+    """Handles routing to external tools on Port 8000 and report integration"""
     
     def __init__(self):
         self.tool_urls = {
-            "detailed_assessment": "/assessment",
-            "portfolio_analysis": "/portfolio-assessment"
+            "detailed_assessment": "http://localhost:8000/assessment",
+            "portfolio_analysis": "http://localhost:8000/portfolio-assessment"
         }
         self.webhook_handler = WebhookHandler()
     
     async def route_to_external_tool(self, tool_type: str, context: ConversationContext) -> ToolResponse:
-        """Route user to external tool with context preservation"""
+        """Route user to external tool on Port 8000 with context preservation"""
         
         tool_url = self.tool_urls.get(tool_type)
         if not tool_url:
@@ -373,7 +403,7 @@ class ExternalToolIntegrator:
             """
     
     async def handle_report_return(self, session_id: str, report_data: ReportData) -> ReportIntegrationResult:
-        """Handle reports returned from external tools"""
+        """Handle reports returned from external tools on Port 8000"""
         
         # Retrieve stored context
         context = await self.retrieve_tool_context(session_id)
@@ -742,10 +772,10 @@ class ComplianceAgent:
 
 ## 🔧 **Technical Implementation Details**
 
-### **Backend Architecture**
+### **Backend Architecture (Port 8001 - New VM)**
 ```python
 # FastAPI Application Structure
-app = FastAPI(title="Robo-Advisor Chatbot API")
+app = FastAPI(title="Robo-Advisor Chatbot API", version="1.0.0")
 
 # WebSocket endpoint for real-time chat
 @app.websocket("/ws/chat/{session_id}")
@@ -826,10 +856,10 @@ class ChatWebSocketManager {
   }
   
   private connect() {
-    this.ws = new WebSocket(`ws://localhost:8000/ws/chat/${this.sessionId}`);
+    this.ws = new WebSocket(`ws://localhost:8001/ws/chat/${this.sessionId}`);
     
     this.ws.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected to chatbot on Port 8001');
       this.processMessageQueue();
     };
     
@@ -870,7 +900,7 @@ const RoboAdvisorChat: React.FC = () => {
   const wsManager = useRef<ChatWebSocketManager | null>(null);
   
   useEffect(() => {
-    // Initialize WebSocket connection
+    // Initialize WebSocket connection to Port 8001
     wsManager.current = new ChatWebSocketManager(generateSessionId());
     
     // Add welcome message
@@ -898,7 +928,7 @@ const RoboAdvisorChat: React.FC = () => {
     setUploadedFiles([]);
     setIsTyping(true);
     
-    // Send message through WebSocket
+    // Send message through WebSocket to Port 8001
     wsManager.current?.sendMessage(userMessage);
   };
   
@@ -950,19 +980,20 @@ const RoboAdvisorChat: React.FC = () => {
 
 ## 🚀 **Deployment & Performance**
 
-### **Deployment Configuration**
+### **Two-VM Deployment Configuration**
 ```yaml
-# docker-compose.yml
+# docker-compose.yml for Port 8001 (New Chatbot VM)
 version: '3.8'
 services:
-  backend:
+  chatbot_backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "8001:8001"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - QDRANT_URL=http://qdrant:6333
       - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - EXISTING_TOOLS_URL=http://localhost:8000  # Port 8000 tools
     depends_on:
       - qdrant
       - redis
@@ -972,7 +1003,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+      - NEXT_PUBLIC_CHATBOT_URL=http://localhost:8001
+      - NEXT_PUBLIC_TOOLS_URL=http://localhost:8000
   
   qdrant:
     image: qdrant/qdrant:latest
@@ -1136,4 +1168,33 @@ async def evaluate_rag_quality(query: str, response: str, context: List[str]) ->
     }
 ```
 
-This technical architecture provides a comprehensive foundation for building a sophisticated, human-feeling chatbot with deep semantic understanding, intelligent routing, quality assurance, and compliance-first design - all while maintaining high performance and scalability. 
+## 🔄 **Current Implementation Status**
+
+### **✅ Completed Components:**
+- **Complete chatbot backend architecture** with all core components
+- **Intent classification system** with semantic understanding
+- **Smart router** with calculator selection logic
+- **Quick calculator agent** for in-chat calculations
+- **File processing system** for uploads and analysis
+- **RAG system foundation** with Qdrant integration
+- **External search system** with Tavily integration
+- **Tool integrator** for external tool routing
+- **WebSocket API** for real-time chat
+- **Quality evaluation framework** with RAGAS integration
+- **Two-VM architecture setup** and configuration
+
+### **🔄 In Progress:**
+- **Qdrant vector database setup** and ingest RAG documents
+- **External tool routing** to Port 8000 tools
+- **Report return system** from completed tools
+- **End-to-end testing** of complete user flows
+
+### **📋 Next Steps:**
+1. **Complete Qdrant setup** and ingest RAG documents
+2. **Test external tool routing** to existing tools on Port 8000
+3. **Implement webhook system** for report returns
+4. **Add compliance agent** and legal guardrails
+5. **Performance testing** and optimization
+6. **Production deployment** and monitoring setup
+
+This technical architecture provides a comprehensive foundation for building a sophisticated, human-feeling chatbot with deep semantic understanding, intelligent routing, quality assurance, and compliance-first design - all while maintaining high performance and scalability. The two-VM architecture ensures we can maintain existing functionality while building the new chatbot with modern dependencies and advanced capabilities. 

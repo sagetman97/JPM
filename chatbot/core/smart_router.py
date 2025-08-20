@@ -6,6 +6,7 @@ from .schemas import (
 )
 from .config import config
 from datetime import datetime
+from .schemas import CalculatorType, IntentCategory
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,16 @@ class SemanticSmartRouter:
         try:
             logger.info(f"Routing query with intent: {intent.intent}, confidence: {intent.confidence}")
             
-            # Check if calculator is needed
-            if intent.calculator_type:
+            # NEW: Handle calculator selection choice
+            if intent.intent == IntentCategory.CALCULATOR_SELECTION_CHOICE:
+                return await self._route_to_calculator_selection(intent, context)
+            
+            # NEW: Handle calculator choice selection
+            elif intent.intent == IntentCategory.CALCULATOR_CHOICE_SELECTED:
+                return await self._route_to_selected_calculator(intent, context)
+            
+            # ONLY route to calculator if intent ACTUALLY requires calculation
+            elif intent.intent.value in ["insurance_needs_calculation", "portfolio_integration_analysis"]:
                 return await self._route_to_calculator(intent, context)
             
             # Check if it's a knowledge-seeking query
@@ -51,126 +60,178 @@ class SemanticSmartRouter:
             return self._get_error_routing_decision(intent, context)
     
     async def _route_to_calculator(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
-        """Route to appropriate calculator based on semantic analysis"""
+        """Route to appropriate calculator based on intent"""
         
         try:
-            # Use calculator selector to determine the best calculator
-            calculator_selection = await self.calculator_selector.select_calculator_semantically(
-                intent.semantic_goal, context
-            )
-            
-            if calculator_selection.selected_calculator.value == "quick":
+            # Check if this is a calculator-related query
+            if intent.calculator_type == CalculatorType.QUICK:
+                # Route to quick calculator
                 return RoutingDecision(
                     route_type=RouteType.QUICK_CALCULATOR,
-                    confidence=calculator_selection.confidence,
-                    reasoning=calculator_selection.semantic_reasoning,
-                    tool_type="quick_calculator",
-                    session_id=context.session_id,
-                    metadata={
-                        "calculator_type": "quick",
-                        "clarification_questions": calculator_selection.clarification_questions,
-                        "expected_outcome": calculator_selection.expected_outcome
-                    }
+                    confidence=intent.confidence,
+                    reasoning=f"User needs quick calculation: {intent.reasoning}",
+                    tool_type=None,
+                    session_id=context.session_id
                 )
             
-            elif calculator_selection.selected_calculator.value in ["detailed", "portfolio"]:
+            elif intent.calculator_type == CalculatorType.DETAILED:
+                # Route to detailed assessment tool
                 return RoutingDecision(
                     route_type=RouteType.EXTERNAL_TOOL,
-                    confidence=calculator_selection.confidence,
-                    reasoning=calculator_selection.semantic_reasoning,
-                    tool_type=calculator_selection.selected_calculator.value,
-                    session_id=context.session_id,
-                    metadata={
-                        "calculator_type": calculator_selection.selected_calculator.value,
-                        "clarification_questions": calculator_selection.clarification_questions,
-                        "expected_outcome": calculator_selection.expected_outcome
-                    }
+                    confidence=intent.confidence,
+                    reasoning=f"User needs detailed assessment: {intent.reasoning}",
+                    tool_type="detailed_assessment",
+                    session_id=context.session_id
+                )
+            
+            elif intent.calculator_type == CalculatorType.PORTFOLIO:
+                # Route to portfolio analysis tool
+                return RoutingDecision(
+                    route_type=RouteType.EXTERNAL_TOOL,
+                    confidence=intent.confidence,
+                    reasoning=f"User needs portfolio analysis: {intent.reasoning}",
+                    tool_type="portfolio_analysis",
+                    session_id=context.session_id
                 )
             
             else:
-                # Fallback to quick calculator
+                # No calculator needed
                 return RoutingDecision(
-                    route_type=RouteType.QUICK_CALCULATOR,
-                    confidence=0.7,
-                    reasoning="Fallback to quick calculator for calculation request",
-                    tool_type="quick_calculator",
-                    session_id=context.session_id,
-                    metadata={
-                        "calculator_type": "quick",
-                        "clarification_questions": ["What is your age?", "What is your annual income?"],
-                        "expected_outcome": "Immediate insurance needs estimate"
-                    }
+                    route_type=RouteType.RAG,
+                    confidence=intent.confidence,
+                    reasoning=f"No calculation needed: {intent.reasoning}",
+                    tool_type=None,
+                    session_id=context.session_id
                 )
                 
         except Exception as e:
-            logger.error(f"Error in calculator routing: {e}")
-            # Fallback to quick calculator
+            logger.error(f"Error routing to calculator: {e}")
             return RoutingDecision(
-                route_type=RouteType.QUICK_CALCULATOR,
-                confidence=0.6,
-                reasoning="Fallback to quick calculator due to routing error",
-                tool_type="quick_calculator",
-                session_id=context.session_id,
-                metadata={
-                    "calculator_type": "quick",
-                    "clarification_questions": ["What is your age?", "What is your annual income?"],
-                    "expected_outcome": "Immediate insurance needs estimate"
-                }
+                route_type=RouteType.BASE_LLM,
+                confidence=0.5,
+                reasoning=f"Calculator routing error: {str(e)}",
+                tool_type=None,
+                session_id=context.session_id
             )
     
-    async def _route_to_knowledge_sources(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
-        """Route to RAG, external search, or fallback based on confidence"""
-        
-        logger.info(f"Routing knowledge query: {intent.semantic_goal}")
-        
-        # Try RAG first
+    async def _route_to_calculator_selection(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
+        """Route to calculator selection when user needs to choose calculator type"""
         try:
-            rag_result = await self.rag_system.get_semantic_response(intent.semantic_goal, context)
+            # Set calculator state to selecting
+            context.calculator_state = "selecting"
             
-            if rag_result.quality_score >= config.min_rag_confidence:
+            return RoutingDecision(
+                route_type=RouteType.CALCULATOR_SELECTION,
+                confidence=intent.confidence,
+                reasoning="User needs to choose calculator type",
+                tool_type=None,
+                session_id=context.session_id,
+                metadata={
+                    "needs_calculator_selection": True,
+                    "suggested_calculator": intent.suggested_calculator or "quick"
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Error routing to calculator selection: {e}")
+            return self._get_error_routing_decision(intent, context, f"Calculator selection routing failed: {str(e)}")
+    
+    async def _route_to_selected_calculator(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
+        """Route to the calculator type the user selected"""
+        try:
+            selected_calc = intent.calculator_type
+            
+            # Update context with selected calculator
+            context.calculator_type = selected_calc
+            context.calculator_state = "active"
+            
+            if selected_calc == CalculatorType.QUICK:
+                # Start quick calculator session
+                from datetime import datetime
+                session_id = f"calc_{int(datetime.utcnow().timestamp())}"
+                context.calculator_session = {"session_id": session_id, "type": "quick"}
+                
+                return RoutingDecision(
+                    route_type=RouteType.QUICK_CALCULATOR,
+                    confidence=1.0,
+                    reasoning=f"User selected {selected_calc} calculator",
+                    tool_type=None,
+                    session_id=context.session_id,
+                    metadata={"calculator_session_id": session_id}
+                )
+            
+            elif selected_calc == CalculatorType.DETAILED:
+                return await self._route_to_client_assessment(intent, context)
+            
+            elif selected_calc == CalculatorType.PORTFOLIO:
+                return await self._route_to_portfolio_analysis(intent, context)
+            
+            else:
+                # Fallback to RAG if calculator type is unclear
                 return RoutingDecision(
                     route_type=RouteType.RAG,
-                    confidence=rag_result.quality_score,
-                    reasoning=f"High-quality RAG response available (score: {rag_result.quality_score:.2f})",
-                    session_id=context.session_id,
-                    metadata={
-                        "rag_quality_score": rag_result.quality_score,
-                        "source_documents": len(rag_result.source_documents),
-                        "semantic_queries": rag_result.semantic_queries
-                    }
+                    confidence=0.5,
+                    reasoning=f"Unclear calculator type: {selected_calc}",
+                    tool_type=None,
+                    session_id=context.session_id
                 )
-            
-            logger.info(f"RAG quality below threshold: {rag_result.quality_score} < {config.min_rag_confidence}")
-            
+                
         except Exception as e:
-            logger.error(f"Error in RAG routing: {e}")
-            rag_result = None
-        
-        # Try external search if RAG failed or was low quality
+            logger.error(f"Error routing to selected calculator: {e}")
+            return self._get_error_routing_decision(intent, context, f"Selected calculator routing failed: {str(e)}")
+    
+    async def _route_to_knowledge_sources(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
+        """Route knowledge queries to RAG system with optional external search"""
         try:
-            search_result = await self.external_search.search_with_evaluation(intent.semantic_goal, context)
+            logger.info(f"Routing knowledge query: {intent.intent.value}")
             
-            if search_result.quality_score >= config.min_search_confidence:
-                return RoutingDecision(
-                    route_type=RouteType.EXTERNAL_SEARCH,
-                    confidence=search_result.quality_score,
-                    reasoning=f"External search provided quality results (score: {search_result.quality_score:.2f})",
-                    session_id=context.session_id,
-                    metadata={
-                        "search_quality_score": search_result.quality_score,
-                        "source_results": len(search_result.source_results),
-                        "original_query": search_result.original_query
-                    }
-                )
+            # For calculator intents, NEVER use external search
+            if intent.intent in [IntentCategory.INSURANCE_NEEDS_CALCULATION, 
+                               IntentCategory.CLIENT_ASSESSMENT_SUPPORT, 
+                               IntentCategory.PORTFOLIO_INTEGRATION_ANALYSIS]:
+                logger.info("Calculator intent detected - bypassing external search")
+                needs_search = False
+            else:
+                # Use the intent classifier's decision about external search
+                needs_search = intent.needs_external_search
+                logger.info(f"Intent classifier determined search need: {needs_search}")
             
-            logger.info(f"External search quality below threshold: {search_result.quality_score} < {config.min_search_confidence}")
+            # Always start with RAG
+            query = intent.semantic_goal if intent.semantic_goal else "general knowledge query"
+            
+            rag_result = await self.rag_system.get_semantic_response(
+                query, 
+                context, 
+                intent,
+                needs_external_search=needs_search  # Pass search decision directly
+            )
+            
+            # Determine route type based on RAG quality
+            if rag_result.quality_score >= config.min_rag_confidence:
+                route_type = RouteType.RAG
+                reasoning = f"RAG provided high-quality response (score: {rag_result.quality_score:.2f})"
+            else:
+                route_type = RouteType.RAG  # Still use RAG, but note low quality
+                reasoning = f"RAG response quality below threshold (score: {rag_result.quality_score:.2f}), but proceeding with RAG"
+            
+            # Cache the RAG response to avoid duplicate calls in orchestrator
+            return RoutingDecision(
+                route_type=route_type,
+                confidence=rag_result.quality_score,
+                reasoning=reasoning,
+                session_id=context.session_id,
+                metadata={
+                    "rag_quality_score": rag_result.quality_score,
+                    "source_documents": len(rag_result.source_documents),
+                    "semantic_queries": rag_result.semantic_queries,
+                    "needs_external_search": needs_search,  # Pass through the search decision
+                    "cached_rag_response": rag_result.response  # Cache the response to avoid duplicate calls
+                }
+            )
             
         except Exception as e:
-            logger.error(f"Error in external search routing: {e}")
-            search_result = None
-        
-        # Fallback to base LLM
-        return await self._route_to_fallback(intent, context)
+            logger.error(f"Error routing to knowledge sources: {e}")
+            return self._get_error_routing_decision(intent, context, f"Knowledge routing failed: {str(e)}")
     
     async def _route_to_client_assessment(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
         """Route to external detailed client assessment tool"""
@@ -193,7 +254,7 @@ class SemanticSmartRouter:
             
         except Exception as e:
             logger.error(f"Error routing to client assessment: {e}")
-            return self._get_error_routing_decision(intent, context)
+            return self._get_error_routing_decision(intent, context, f"Client assessment routing failed: {str(e)}")
     
     async def _route_to_portfolio_analysis(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
         """Route to external portfolio analysis tool"""
@@ -216,7 +277,7 @@ class SemanticSmartRouter:
             
         except Exception as e:
             logger.error(f"Error routing to portfolio analysis: {e}")
-            return self._get_error_routing_decision(intent, context)
+            return self._get_error_routing_decision(intent, context, f"Portfolio analysis routing failed: {str(e)}")
     
     async def _route_to_fallback(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
         """Route to base LLM fallback"""
@@ -232,13 +293,13 @@ class SemanticSmartRouter:
             }
         )
     
-    def _get_error_routing_decision(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
+    def _get_error_routing_decision(self, intent: IntentResult, context: ConversationContext, error_reason: str) -> RoutingDecision:
         """Get routing decision for error cases"""
         
         return RoutingDecision(
             route_type=RouteType.BASE_LLM,
             confidence=0.3,
-            reasoning="Error in routing system, using base LLM fallback",
+            reasoning=f"Error in routing system, using base LLM fallback: {error_reason}",
             session_id=context.session_id,
             metadata={
                 "error": "Routing system error",
@@ -252,12 +313,19 @@ class ToolIntegrator:
     def __init__(self):
         self.tool_urls = {
             "detailed_assessment": "/assessment",
+            "client_assessment": "/assessment",  # Alias for client_assessment
             "portfolio_analysis": "/portfolio-assessment",
             "quick_calculator": "/quick-calculator"
         }
         
         self.tool_descriptions = {
             "detailed_assessment": {
+                "name": "New Client Detailed Assessment",
+                "description": "Comprehensive 50+ question assessment for thorough financial planning",
+                "estimated_time": "15-20 minutes",
+                "output": "Detailed report with multiple scenarios and recommendations"
+            },
+            "client_assessment": {
                 "name": "New Client Detailed Assessment",
                 "description": "Comprehensive 50+ question assessment for thorough financial planning",
                 "estimated_time": "15-20 minutes",

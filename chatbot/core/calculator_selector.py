@@ -1,7 +1,7 @@
 import logging
 import json
 from typing import List, Dict, Any, Optional
-from openai import OpenAI
+from openai import AsyncOpenAI
 from .schemas import CalculatorSelection, CalculatorType, ConversationContext, KnowledgeLevel
 from .config import config
 
@@ -11,7 +11,7 @@ class SemanticCalculatorSelector:
     """Uses semantic understanding to select the right calculator"""
     
     def __init__(self):
-        self.llm = OpenAI(
+        self.llm = AsyncOpenAI(
             api_key=config.openai_api_key
         )
     
@@ -19,6 +19,11 @@ class SemanticCalculatorSelector:
         """Understand user's semantic intent to select appropriate calculator"""
         
         try:
+            # Validate that this query actually needs a calculator
+            if not self._needs_calculator(query):
+                logger.warning(f"Calculator selector called for non-calculation query: {query}")
+                return self._get_fallback_calculator_selection(query, context)
+            
             prompt = self._build_calculator_selection_prompt(query, context)
             
             response = await self.llm.chat.completions.create(
@@ -44,6 +49,8 @@ class SemanticCalculatorSelector:
         """Build comprehensive prompt for calculator selection"""
         
         return f"""
+        IMPORTANT: This calculator selector should ONLY be called when the user explicitly needs a calculation or insurance needs assessment.
+        
         Analyze this request semantically to determine which calculator best serves the user's needs:
         
         **User Request:** "{query}"
@@ -215,6 +222,47 @@ class SemanticCalculatorSelector:
         
         return "Insurance needs assessment and recommendations"
     
+    def _needs_calculator(self, query: str) -> bool:
+        """Check if the query actually needs a calculator"""
+        try:
+            query_lower = query.lower()
+            
+            # Keywords that indicate calculation is needed
+            calculation_keywords = [
+                "calculate", "how much", "coverage amount", "needs assessment", 
+                "how much insurance", "coverage recommendation", "estimate", "quote",
+                "premium", "monthly payment", "annual cost", "cash value projection",
+                "insurance need", "coverage need", "determine", "figure out", "help me calculate"
+            ]
+            
+            # Keywords that indicate education/information (NOT calculation)
+            education_keywords = [
+                "what is", "tell me about", "explain", "how does", "difference between",
+                "compare", "pros and cons", "benefits of", "risks of", "learn about",
+                "understand", "information about"
+            ]
+            
+            # Check if query contains calculation keywords
+            has_calculation_intent = any(keyword in query_lower for keyword in calculation_keywords)
+            
+            # Check if query contains education keywords
+            has_education_intent = any(keyword in query_lower for keyword in education_keywords)
+            
+            # If it has education intent, it probably doesn't need a calculator
+            if has_education_intent and not has_calculation_intent:
+                return False
+            
+            # If it has calculation intent, it needs a calculator
+            if has_calculation_intent:
+                return True
+            
+            # Default: assume no calculator needed unless explicitly requested
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error checking if calculator is needed: {e}")
+            return False
+    
     def _get_fallback_calculator_selection(self, query: str, context: ConversationContext) -> CalculatorSelection:
         """Get fallback calculator selection when main selection fails"""
         
@@ -228,14 +276,20 @@ class SemanticCalculatorSelector:
             calculator_type = CalculatorType.PORTFOLIO
             reasoning = "Fallback to portfolio calculator based on investment-related keywords"
         else:
+            # For ambiguous requests, default to detailed calculator but ask for clarification
             calculator_type = CalculatorType.DETAILED
-            reasoning = "Fallback to detailed calculator for comprehensive analysis"
+            reasoning = "Default to detailed calculator for comprehensive analysis, but asking for clarification"
         
         return CalculatorSelection(
             selected_calculator=calculator_type,
-            confidence=0.6,
+            confidence=0.5,  # Lower confidence for fallback
             semantic_reasoning=reasoning,
-            clarification_questions=self._generate_default_clarification_questions(calculator_type, context),
+            clarification_questions=[
+                "Which type of calculator would you prefer?",
+                "Quick Calculator (5 questions, 2-3 minutes) for immediate estimate?",
+                "Detailed Calculator (50+ questions, 15-20 minutes) for comprehensive analysis?",
+                "Portfolio Calculator (10-15 minutes) for investment-focused analysis?"
+            ],
             expected_outcome=self._get_default_expected_outcome(calculator_type)
         )
     

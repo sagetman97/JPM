@@ -1,6 +1,12 @@
+"""
+Backend API integration for the chatbot.
+Handles communication with the portfolio analysis backend.
+"""
+
+import asyncio
 import logging
+from typing import Dict, Any, List, Optional
 import httpx
-from typing import Dict, Any, Optional, List
 from .schemas import ConversationContext
 from .config import config
 
@@ -14,22 +20,34 @@ class BackendAPIIntegrator:
         self.client = httpx.AsyncClient(timeout=30.0)
     
     async def calculate_life_insurance_needs(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Calculate life insurance needs using existing backend API"""
+        """Calculate life insurance needs using the backend API"""
         
         try:
-            response = await self.client.post(
-                f"{self.base_url}/api/life-insurance/calculate",
-                json=data
-            )
-            
-            if response.status_code == 200:
-                return response.json()
+            # Determine which endpoint to use based on data complexity
+            if len(data) <= 6 and "calculation_type" in data:
+                # Simple chatbot calculation - use quick endpoint
+                endpoint = "http://localhost:8000/api/calculate-needs-quick"
+                print(f"Using quick endpoint for chatbot calculation: {endpoint}")
             else:
-                logger.error(f"Life insurance calculation failed: {response.status_code}")
-                return {"error": "Calculation failed", "status_code": response.status_code}
+                # Complex calculation - use detailed endpoint
+                endpoint = "http://localhost:8000/api/calculate-needs-detailed"
+                print(f"Using detailed endpoint for complex calculation: {endpoint}")
+            
+            # Call the backend API endpoint
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    endpoint,
+                    json=data,
+                    timeout=30.0
+                )
                 
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    return {"error": f"Backend API error: {response.status_code}"}
+                    
         except Exception as e:
-            logger.error(f"Error calling life insurance API: {e}")
+            logger.error(f"Error calling backend API: {e}")
             return {"error": f"API call failed: {str(e)}"}
     
     async def analyze_portfolio(self, portfolio_data: Dict[str, Any]) -> Dict[str, Any]:

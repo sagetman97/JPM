@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import List, Dict, Any
-from openai import OpenAI
+from openai import AsyncOpenAI
 from .schemas import IntentResult, IntentCategory, CalculatorType, ConversationContext, KnowledgeLevel
 from .config import config
 
@@ -11,7 +11,7 @@ class ConversationContextAnalyzer:
     """Analyzes conversation history to extract semantic context"""
     
     def __init__(self):
-        self.llm = OpenAI(api_key=config.openai_api_key)
+        self.llm = AsyncOpenAI(api_key=config.openai_api_key)
     
     async def extract_semantic_context(self, chat_history: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Extract semantic meaning from conversation history using LLM"""
@@ -130,9 +130,8 @@ class SemanticIntentClassifier:
     """Uses pure LLM-based semantic understanding for intent classification"""
     
     def __init__(self):
-        self.llm = OpenAI(
-            api_key=config.openai_api_key,
-            temperature=config.openai_temperature
+        self.llm = AsyncOpenAI(
+            api_key=config.openai_api_key
         )
         self.context_analyzer = ConversationContextAnalyzer()
     
@@ -151,7 +150,7 @@ class SemanticIntentClassifier:
             )
             
             # Parse semantic intent result
-            intent_result = self._parse_semantic_intent(response.choices[0].message.content, query)
+            intent_result = self._parse_semantic_intent(response.choices[0].message.content, query, context)
             
             logger.info(f"Semantic intent classification: {intent_result.intent.value}, confidence: {intent_result.confidence}")
             return intent_result
@@ -174,6 +173,8 @@ class SemanticIntentClassifier:
         - Current Focus: {context.current_topic or 'General'}
         - Expressed Goals: {', '.join(context.user_goals) if context.user_goals else 'None'}
         - Client Context: {context.client_context or 'Personal'}
+        - Calculator State: {context.calculator_state or 'None'}
+        - Calculator Type: {context.calculator_type or 'None'}
         
         **Semantic Analysis Required:**
         1. **What is the user REALLY asking for?** (not just surface-level words)
@@ -191,12 +192,26 @@ class SemanticIntentClassifier:
         5. product_comparison - Comparing different insurance options
         6. scenario_analysis - "What if" questions and planning
         7. general_financial_advice - General financial planning questions
+        8. calculator_selection_choice - User needs calculation but calculator type unclear
+        9. calculator_choice_selected - User has chosen calculator type
         
-        **Calculator Type Detection:**
+        **Calculator Type Detection (ONLY if calculation is needed):**
         - quick_calculation: Simple, fast estimate needed
         - detailed_assessment: Comprehensive analysis required
         - portfolio_analysis: Portfolio-focused insurance analysis
-        - none: No calculation needed
+        - none: No calculation needed (use for education, general advice, etc.)
+
+        **NEW: Calculator Selection Logic:**
+        - If user asks about calculation/coverage but doesn't specify calculator type:
+          * Set intent to "calculator_selection_choice"
+          * Set calculator_type to "none" (user needs to choose)
+          * Add follow_up_clarification: ["Which type of calculation would you prefer?"]
+        
+        **Calculator Selection Intent:**
+        - calculator_selection_choice: User needs calculation but calculator type unclear
+        - Requires followup to determine: quick, detailed, or portfolio calculator
+        
+        **IMPORTANT:** Only set calculator_type if the user is explicitly asking for a calculation or needs assessment. For general questions, education, or information requests, set calculator_type to "none".
         
         **Response Format (JSON):**
         {{
@@ -207,18 +222,54 @@ class SemanticIntentClassifier:
             "reasoning": "detailed explanation of why this classification",
             "follow_up_clarification": "questions to confirm understanding if needed",
             "user_knowledge_assessment": "beginner|intermediate|expert",
-            "priority_level": "high|medium|low"
+            "priority_level": "high|medium|low",
+            "needs_external_search": true|false,
+            "needs_calculator_selection": true|false,
+            "suggested_calculator": "quick|detailed|portfolio|none"
         }}
+
+        **CRITICAL RULES:**
+        - For education queries (life_insurance_education, product_comparison), set calculator_type to "none"
+        - For general advice queries, set calculator_type to "none" 
+        - **AGGRESSIVELY detect calculator needs** when users ask about:
+          * "how much coverage do I need"
+          * "calculate my insurance needs" 
+          * "what amount of life insurance"
+          * "coverage calculation"
+          * "needs assessment"
+          * "insurance calculator"
+          * "start calculation"
+        - **When in doubt about calculation intent, prefer calculator detection over "none"**
+        - **Calculator queries should be classified as insurance_needs_calculation intent**
+        - **MANDATORY: If intent is "insurance_needs_calculation", calculator_type MUST be "quick" (not "none")**
+        - **MANDATORY: If intent is "portfolio_integration_analysis", calculator_type MUST be "portfolio" (not "none")**
+        - **MANDATORY: If intent is "client_assessment_support", calculator_type MUST be "detailed" (not "none")**
+        - **NEW: If intent is "calculator_selection_choice", set needs_calculator_selection to true**
+        
+        **EXTERNAL SEARCH DECISION LOGIC:**
+        - **Set needs_external_search to TRUE only when the query requires current, real-time information that our knowledge base might not have:**
+          * Current rates, pricing, or market conditions (e.g., "current term life rates", "today's market rates")
+          * Recent company-specific information (e.g., "Progressive's latest offerings", "Allstate's new products")
+          * Time-sensitive regulatory changes (e.g., "recent tax law changes", "new compliance requirements")
+          * Breaking industry news or events (e.g., "latest insurance industry developments")
+        - **Set needs_external_search to FALSE for:**
+          * General educational questions (e.g., "what is whole life insurance", "how does term insurance work")
+          * Product comparisons and explanations (e.g., "term vs whole life", "IUL benefits")
+          * Calculation requests (e.g., "calculate my needs", "how much coverage")
+          * Portfolio analysis and planning (e.g., "how does insurance fit my portfolio")
+        - **Be CONSERVATIVE - only use external search when absolutely necessary for current information**
         
         **Analysis Guidelines:**
-        - Focus on semantic meaning and underlying intent
-        - Consider the user's knowledge level and previous context
-        - Identify if they need calculations or just information
-        - Assess the complexity of their request
-        - Consider their financial planning stage and goals
+        - Focus on understanding what the user really wants
+        - Consider their knowledge level and previous conversation
+        - Think about whether they need help calculating or just learning
+        - Assess how complex their request is
+        - Consider where they are in their financial planning journey
+        - **CRITICAL: External search should be rare and only for truly current/real-time needs**
+        - **NEW: Consider calculator state when determining intent**
         """
     
-    def _parse_semantic_intent(self, response: str, original_query: str) -> IntentResult:
+    def _parse_semantic_intent(self, response: str, original_query: str, context: ConversationContext) -> IntentResult:
         """Parse LLM response for semantic intent"""
         
         try:
@@ -236,22 +287,45 @@ class SemanticIntentClassifier:
                 # Map calculator type
                 calculator_type = self._map_calculator_type(intent_data.get("calculator_type", ""))
                 
+                # Handle follow_up_clarification - ensure it's a list
+                follow_up = intent_data.get("follow_up_clarification", [])
+                if isinstance(follow_up, str):
+                    follow_up = [follow_up] if follow_up else []
+                elif not isinstance(follow_up, list):
+                    follow_up = []
+                
+                # Handle needs_external_search - ensure it's a boolean
+                needs_external_search = intent_data.get("needs_external_search", False)
+                if isinstance(needs_external_search, str):
+                    needs_external_search = needs_external_search.lower() == "true"
+                
+                # Handle needs_calculator_selection - ensure it's a boolean
+                needs_calculator_selection = intent_data.get("needs_calculator_selection", False)
+                if isinstance(needs_calculator_selection, str):
+                    needs_calculator_selection = needs_calculator_selection.lower() == "true"
+                
+                # Handle suggested_calculator - ensure it's a string
+                suggested_calculator = intent_data.get("suggested_calculator", "none")
+                if isinstance(suggested_calculator, str):
+                    suggested_calculator = suggested_calculator.lower()
+                
                 return IntentResult(
                     intent=intent_category,
                     semantic_goal=intent_data.get("semantic_goal", original_query),
                     calculator_type=calculator_type,
                     confidence=float(intent_data.get("confidence", 0.8)),
                     reasoning=intent_data.get("reasoning", "Semantic analysis completed"),
-                    follow_up_clarification=intent_data.get("follow_up_clarification", ""),
-                    user_knowledge_assessment=intent_data.get("user_knowledge_assessment", "beginner"),
-                    priority_level=intent_data.get("priority_level", "medium")
+                    follow_up_clarification=follow_up,
+                    needs_external_search=needs_external_search,
+                    needs_calculator_selection=needs_calculator_selection,
+                    suggested_calculator=suggested_calculator
                 )
             
         except Exception as e:
             logger.error(f"Error parsing semantic intent: {e}")
         
         # Fallback to basic intent
-        return self._get_fallback_intent(original_query, ConversationContext())
+        return self._get_fallback_intent(original_query, context)
     
     def _map_intent_category(self, intent_str: str) -> IntentCategory:
         """Map string intent to IntentCategory enum"""
@@ -263,7 +337,9 @@ class SemanticIntentClassifier:
             "client_assessment_support": IntentCategory.CLIENT_ASSESSMENT_SUPPORT,
             "product_comparison": IntentCategory.PRODUCT_COMPARISON,
             "scenario_analysis": IntentCategory.SCENARIO_ANALYSIS,
-            "general_financial_advice": IntentCategory.GENERAL_FINANCIAL_ADVICE
+            "general_financial_advice": IntentCategory.GENERAL_FINANCIAL_ADVICE,
+            "calculator_selection_choice": IntentCategory.CALCULATOR_SELECTION_CHOICE,
+            "calculator_choice_selected": IntentCategory.CALCULATOR_CHOICE_SELECTED
         }
         
         return intent_mapping.get(intent_str, IntentCategory.GENERAL_FINANCIAL_ADVICE)
@@ -286,14 +362,14 @@ class SemanticIntentClassifier:
         # Basic fallback logic
         query_lower = query.lower()
         
-        if any(word in query_lower for word in ["calculate", "how much", "coverage", "needs"]):
+        if any(word in query_lower for word in ["calculate", "how much", "coverage", "needs", "amount", "calculator", "assessment", "start"]):
             return IntentResult(
                 intent=IntentCategory.INSURANCE_NEEDS_CALCULATION,
                 semantic_goal="Calculate insurance coverage needs",
                 calculator_type=CalculatorType.QUICK,
-                confidence=0.6,
-                reasoning="Fallback to calculation intent based on keywords",
-                follow_up_clarification="",
+                confidence=0.8,
+                reasoning="Fallback to calculation intent based on calculator keywords",
+                follow_up_clarification=[],
                 user_knowledge_assessment="beginner",
                 priority_level="medium"
             )
@@ -305,7 +381,7 @@ class SemanticIntentClassifier:
                 calculator_type=CalculatorType.NONE,
                 confidence=0.6,
                 reasoning="Fallback to education intent based on keywords",
-                follow_up_clarification="",
+                follow_up_clarification=[],
                 user_knowledge_assessment="beginner",
                 priority_level="medium"
             )
@@ -317,7 +393,7 @@ class SemanticIntentClassifier:
                 calculator_type=CalculatorType.NONE,
                 confidence=0.5,
                 reasoning="Fallback to general advice intent",
-                follow_up_clarification="",
+                follow_up_clarification=[],
                 user_knowledge_assessment="beginner",
                 priority_level="low"
             ) 
