@@ -33,6 +33,16 @@ export default function RoboAdvisorPage() {
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -126,25 +136,28 @@ export default function RoboAdvisorPage() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!inputValue.trim() || !isConnected) return;
+  const sendMessage = async (customMessage?: string) => {
+    const messageToSend = customMessage || inputValue;
+    if (!messageToSend.trim() || !isConnected) return;
 
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: 'user',
-      content: inputValue,
+      content: messageToSend,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
+    if (!customMessage) {
+      setInputValue('');
+    }
     setIsTyping(true);
 
     // Send message through WebSocket
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       const message = {
         type: 'chat_message',
-        content: inputValue,
+        content: messageToSend,
         timestamp: new Date().toISOString()
       };
       console.log('Sending WebSocket message:', message);
@@ -158,7 +171,7 @@ export default function RoboAdvisorPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            message: inputValue,
+            message: messageToSend,
             session_id: sessionId
           })
         });
@@ -193,6 +206,11 @@ export default function RoboAdvisorPage() {
       
       setIsTyping(false);
     }
+  };
+
+  const sendQuickCalculatorMessage = () => {
+    const message = "Can you help me get a quick calculation of my life insurance coverage needs?";
+    sendMessage(message);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -318,9 +336,9 @@ export default function RoboAdvisorPage() {
           {/* Chat Header */}
           <div className="bg-gradient-to-r from-[#1B365D] to-[#2C5282] text-white p-6 rounded-t-2xl">
             <div className="flex items-center space-x-4">
-              <div className="bg-white bg-opacity-20 rounded-full p-3 backdrop-blur-sm">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              <div className="bg-white rounded-full p-3 shadow-lg border border-gray-200">
+                <svg className="w-7 h-7 text-[#1B365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
               <div className="flex-1">
@@ -414,6 +432,9 @@ export default function RoboAdvisorPage() {
                 </div>
               </div>
             )}
+            
+            {/* Scroll target for auto-scroll */}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Input Area */}
@@ -451,7 +472,7 @@ export default function RoboAdvisorPage() {
               
               {/* Send Button */}
               <button
-                onClick={sendMessage}
+                onClick={() => sendMessage()}
                 className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-lg transition-all duration-200 ${
                   inputValue.trim() && isConnected
                     ? 'bg-[#1B365D] text-white hover:bg-[#2C5282] shadow-md' 
@@ -469,9 +490,9 @@ export default function RoboAdvisorPage() {
             <div className="mt-4 flex flex-wrap gap-3">
               <button 
                 className="text-sm bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 px-4 py-2 rounded-xl hover:from-blue-100 hover:to-blue-200 border border-blue-200 transition-all duration-200 font-medium shadow-sm"
-                onClick={() => setInputValue("I need help calculating my life insurance needs")}
+                onClick={sendQuickCalculatorMessage}
               >
-                💰 Coverage Calculator
+                💰 Quick Coverage Calculator
               </button>
               <button 
                 className="text-sm bg-gradient-to-r from-green-50 to-green-100 text-green-700 px-4 py-2 rounded-xl hover:from-green-100 hover:to-green-200 border border-green-200 transition-all duration-200 font-medium shadow-sm"

@@ -42,6 +42,10 @@ class PortfolioCalculator:
     def calculate_portfolio_metrics(self, portfolio_data: Dict[str, Any]) -> PortfolioMetrics:
         """Calculate comprehensive portfolio metrics"""
         
+        # Debug logging
+        print(f"DEBUG: Portfolio calculator received data keys: {list(portfolio_data.keys())}")
+        print(f"DEBUG: Portfolio calculator - age: {portfolio_data.get('age')}, total_assets: {portfolio_data.get('total_assets')}")
+        
         # Extract key values from portfolio_data
         age = self._parse_number(portfolio_data.get("age", 35))
         equity = self._parse_number(portfolio_data.get("equity", 0))
@@ -54,6 +58,14 @@ class PortfolioCalculator:
         liquid_assets = self._parse_number(portfolio_data.get("liquid_assets", 0))
         monthly_expenses = self._parse_number(portfolio_data.get("monthly_expenses", 0))
         total_liabilities = self._parse_number(portfolio_data.get("total_liabilities", 0))
+        
+        # Debug logging for extracted values
+        print(f"DEBUG: Portfolio calculator extracted values:")
+        print(f"  - age: {age}, equity: ${equity:,.2f}, fixed_income: ${fixed_income:,.2f}")
+        print(f"  - real_estate: ${real_estate:,.2f}, cash: ${cash:,.2f}, alternative: ${alternative:,.2f}")
+        print(f"  - investable_portfolio: ${investable_portfolio:,.2f}, total_assets: ${total_assets:,.2f}")
+        print(f"  - liquid_assets: ${liquid_assets:,.2f}, monthly_expenses: ${monthly_expenses:,.2f}")
+        print(f"  - total_liabilities: ${total_liabilities:,.2f}")
         
         # Validate asset allocation values
         if equity < 0:

@@ -41,12 +41,12 @@ class SearchQualityEvaluator:
         
         try:
             prompt = f"""
-            Evaluate the quality and relevance of this search result:
-            
-            **Query:** "{query}"
-            **Search Result:** "{result.get('content', '')}"
-            
-            **Evaluation Criteria:**
+        Evaluate the quality and relevance of this search result:
+        
+        **Query:** "{query}"
+        **Search Result:** "{result.get('content', '')}"
+        
+        **Evaluation Criteria:**
             1. **Relevance**: How well does this result answer the query?
             2. **Accuracy**: Is the information factual and reliable?
             3. **Completeness**: Does it provide sufficient detail?

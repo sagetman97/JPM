@@ -48,7 +48,6 @@ async def test_chatbot():
         
         logger.info("🛣️ Initializing smart router...")
         smart_router = SemanticSmartRouter(
-            rag_system=rag_system,
             external_search=external_search,
             tool_integrator=tool_integrator,
             base_llm=None,  # Will be handled by orchestrator

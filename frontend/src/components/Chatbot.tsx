@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { fetchProductFAQ } from "@/utils/api";
 
 const SUGGESTED_QUESTIONS = [
@@ -14,6 +14,16 @@ export default function Chatbot({ open, onClose }: { open: boolean; onClose: () 
   const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const sendMessage = async (msg?: string) => {
     const question = msg ?? input;
@@ -57,6 +67,7 @@ export default function Chatbot({ open, onClose }: { open: boolean; onClose: () 
               </span>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
         <div className="mb-2 flex flex-wrap gap-2">
           {SUGGESTED_QUESTIONS.map((q) => (

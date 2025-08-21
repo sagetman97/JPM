@@ -139,6 +139,8 @@ class SemanticIntentClassifier:
         """Classify intent using pure semantic understanding"""
         
         try:
+            logger.info(f"🔍 INTENT CLASSIFIER: Starting semantic classification for query: '{query[:100]}...'")
+            
             # Build comprehensive semantic analysis prompt
             prompt = self._build_semantic_intent_prompt(query, context)
             
@@ -149,14 +151,21 @@ class SemanticIntentClassifier:
                 temperature=0.1
             )
             
+            logger.info(f"🔍 INTENT CLASSIFIER: Raw LLM response: '{response.choices[0].message.content[:200]}...'")
+            
             # Parse semantic intent result
             intent_result = self._parse_semantic_intent(response.choices[0].message.content, query, context)
             
-            logger.info(f"Semantic intent classification: {intent_result.intent.value}, confidence: {intent_result.confidence}")
+            logger.info(f"🔍 INTENT CLASSIFIER: Final classification: {intent_result.intent.value} with confidence {intent_result.confidence}")
+            logger.info(f"🔍 INTENT CLASSIFIER: Reasoning: {intent_result.reasoning}")
+            logger.info(f"🔍 INTENT CLASSIFIER: Semantic goal: {intent_result.semantic_goal}")
+            
             return intent_result
             
         except Exception as e:
-            logger.error(f"Error in semantic intent classification: {e}")
+            logger.error(f"🔍 INTENT CLASSIFIER: Error in semantic intent classification: {e}")
+            import traceback
+            logger.error(f"🔍 INTENT CLASSIFIER: Full traceback: {traceback.format_exc()}")
             return self._get_fallback_intent(query, context)
     
     def _build_semantic_intent_prompt(self, query: str, context: ConversationContext) -> str:
@@ -194,6 +203,7 @@ class SemanticIntentClassifier:
         7. general_financial_advice - General financial planning questions
         8. calculator_selection_choice - User needs calculation but calculator type unclear
         9. calculator_choice_selected - User has chosen calculator type
+        10. conversation_management - Managing conversation state, asking about what was discussed
         
         **Calculator Type Detection (ONLY if calculation is needed):**
         - quick_calculation: Simple, fast estimate needed
@@ -245,6 +255,53 @@ class SemanticIntentClassifier:
         - **MANDATORY: If intent is "portfolio_integration_analysis", calculator_type MUST be "portfolio" (not "none")**
         - **MANDATORY: If intent is "client_assessment_support", calculator_type MUST be "detailed" (not "none")**
         - **NEW: If intent is "calculator_selection_choice", set needs_calculator_selection to true**
+        
+        **🎯 Conversation Management vs Follow-up Detection:**
+        - **Set intent to "conversation_management" ONLY when users ask about conversation state:**
+          * "what did we just talk about" ← **HIGHEST PRIORITY**
+          * "what were we discussing"
+          * "summarize our conversation"
+          * "what have we covered"
+          * "what was the main topic"
+          * "repeat what you said about X"
+          * "how long have we been talking"
+          * "what questions have I asked"
+          * "can you remind me what we discussed"
+          * "what was our conversation about"
+        - **These queries should NEVER go to RAG or external search**
+        - **They should use the conversation memory system directly**
+        
+        - **CRITICAL: These are NOT conversation management (they are follow-up questions):**
+          * "expand on cash value" → This is life_insurance_education (learning more about a concept)
+          * "tell me more about IUL" → This is life_insurance_education (learning more about a product)
+          * "go deeper into term life" → This is life_insurance_education (learning more about a topic)
+          * "what about the death benefit" → This is life_insurance_education (learning more about a feature)
+          * "how does the growth work" → This is life_insurance_education (learning more about mechanics)
+          * "can you elaborate on premiums" → This is life_insurance_education (learning more about costs)
+          * "explain more about surrender value" → This is life_insurance_education (learning more about features)
+        
+        - **Rule of thumb:** If the user is asking to learn more about a specific insurance concept, product, or feature, it's NOT conversation management - it's life_insurance_education that should use RAG with context.
+        
+        **🎯 Intent Classification Examples:**
+        
+        **life_insurance_education Examples:**
+        - "what is term life insurance" → New question about a concept
+        - "how does whole life work" → New question about a product
+        - "expand on cash value" → Follow-up question about a concept (use RAG with context)
+        - "tell me more about IUL" → Follow-up question about a product (use RAG with context)
+        - "what about the death benefit" → Follow-up question about a feature (use RAG with context)
+        - "go deeper into how premiums work" → Follow-up question about mechanics (use RAG with context)
+        
+        **conversation_management Examples:**
+        - "what did we just talk about" → Meta-question about conversation state
+        - "summarize our conversation" → Meta-question about conversation content
+        - "what were we discussing" → Meta-question about conversation focus
+        - "how long have we been talking" → Meta-question about conversation duration
+        
+        **Context Usage Guidelines:**
+        - **For follow-up questions** (expand on, tell me more, go deeper): Use the context to enhance RAG responses
+        - **For new questions**: Context provides background but doesn't change the core intent
+        - **For conversation management**: Context provides conversation history for summaries
         
         **EXTERNAL SEARCH DECISION LOGIC:**
         - **Set needs_external_search to TRUE only when the query requires current, real-time information that our knowledge base might not have:**
@@ -339,7 +396,8 @@ class SemanticIntentClassifier:
             "scenario_analysis": IntentCategory.SCENARIO_ANALYSIS,
             "general_financial_advice": IntentCategory.GENERAL_FINANCIAL_ADVICE,
             "calculator_selection_choice": IntentCategory.CALCULATOR_SELECTION_CHOICE,
-            "calculator_choice_selected": IntentCategory.CALCULATOR_CHOICE_SELECTED
+            "calculator_choice_selected": IntentCategory.CALCULATOR_CHOICE_SELECTED,
+            "conversation_management": IntentCategory.CONVERSATION_MANAGEMENT
         }
         
         return intent_mapping.get(intent_str, IntentCategory.GENERAL_FINANCIAL_ADVICE)

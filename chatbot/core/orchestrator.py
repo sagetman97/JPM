@@ -10,6 +10,8 @@ from .schemas import (
     IntentCategory, CalculatorType
 )
 from .config import config
+from .context_manager import ConversationContextUpdater, ContextPollutionGuard
+from .simple_conversation_history import SimpleConversationHistory
 
 logger = logging.getLogger(__name__)
 
@@ -218,15 +220,15 @@ class ComplianceAgent:
         
         try:
             # Log the response before compliance review to track sources
-            has_sources_before = "**Sources Used:**" in response or "**External Search Results:**" in response
+            has_sources_before = "**Sources Used:**" in response or "**External Search Result Sources:**" in response
             logger.info(f"🔒 COMPLIANCE: Starting review - Response has sources: {has_sources_before}")
             if has_sources_before:
                 logger.info(f"🔒 COMPLIANCE: Response length before review: {len(response)} characters")
                 if "**Sources Used:**" in response:
                     sources_start = response.find("**Sources Used:**")
                     logger.info(f"🔒 COMPLIANCE: Sources section starts at position: {sources_start}")
-                if "**External Search Results:**" in response:
-                    external_start = response.find("**External Search Results:**")
+                if "**External Search Result Sources:**" in response:
+                    external_start = response.find("**External Search Result Sources:**")
                     logger.info(f"🔒 COMPLIANCE: External search section starts at position: {external_start}")
             
             prompt = self._build_compliance_review_prompt(response, context)
@@ -240,7 +242,7 @@ class ComplianceAgent:
             compliance_result = self._parse_compliance_review(review.choices[0].message.content, response)
             
             # Log the result after compliance review
-            has_sources_after = "**Sources Used:**" in compliance_result.final_response or "**External Search Results:**" in compliance_result.final_response
+            has_sources_after = "**Sources Used:**" in compliance_result.final_response or "**External Search Result Sources:**" in compliance_result.final_response
             logger.info(f"🔒 COMPLIANCE: Review complete - Final response has sources: {has_sources_after}")
             if compliance_result.was_rewritten:
                 logger.info(f"🔒 COMPLIANCE: Response was rewritten - Original: {len(response)} chars, Final: {len(compliance_result.final_response)} chars")
@@ -282,7 +284,7 @@ class ComplianceAgent:
         4. **Response Safety**: Is this response safe and appropriate?
         
         **CRITICAL REQUIREMENTS:**
-        - **PRESERVE ALL SOURCE ATTRIBUTION**: If the response contains "**Sources Used:**" or "**External Search Results:**" sections, these MUST be kept intact
+        - **PRESERVE ALL SOURCE ATTRIBUTION**: If the response contains "**Sources Used:**" or "**External Search Result Sources:**" sections, these MUST be kept intact
         - **PRESERVE EXTERNAL SEARCH CONTENT**: Any information from external sources should remain in the response
         - **ADD COMPLIANCE ELEMENTS**: Add disclaimers and safety warnings without removing existing content
         - **MAINTAIN RESPONSE QUALITY**: Keep the enhanced response quality from RAG + external search
@@ -310,7 +312,7 @@ class ComplianceAgent:
         Consider adding disclaimers, professional consultation reminders, or risk warnings 
         when appropriate. However, keep the language natural and helpful, not overly formal.
         
-        **SOURCE PRESERVATION RULE**: If you see "**Sources Used:**" or "**External Search Results:**" in the response, 
+        **SOURCE PRESERVATION RULE**: If you see "**Sources Used:**" or "**External Search Result Sources:**" in the response, 
         you MUST include these sections in your rewritten response. These are critical for transparency and user trust.
         """
     
@@ -334,8 +336,8 @@ class ComplianceAgent:
                 # CRITICAL: Ensure source attribution is preserved if rewriting occurred
                 if needs_rewriting and final_response != original_response:
                     # Check if original had sources that need to be preserved
-                    has_sources = "**Sources Used:**" in original_response or "**External Search Results:**" in original_response
-                    has_sources_in_final = "**Sources Used:**" in final_response or "**External Search Results:**" in final_response
+                    has_sources = "**Sources Used:**" in original_response or "**External Search Result Sources:**" in original_response
+                    has_sources_in_final = "**Sources Used:**" in final_response or "**External Search Result Sources:**" in final_response
                     
                     logger.info(f"🔒 COMPLIANCE: Checking source preservation - Original has sources: {has_sources}, Final has sources: {has_sources_in_final}")
                     
@@ -351,19 +353,19 @@ class ComplianceAgent:
                             source_sections.append(original_response[sources_start:sources_end])
                             logger.info(f"🔒 COMPLIANCE: Extracted Sources Used section: {original_response[sources_start:sources_end][:100]}...")
                         
-                        if "**External Search Results:**" in original_response:
-                            external_start = original_response.find("**External Search Results:**")
+                        if "**External Search Result Sources:**" in original_response:
+                            external_start = original_response.find("**External Search Result Sources:**")
                             external_end = original_response.find("\n\n", external_start)
                             if external_end == -1:
                                 external_end = len(original_response)
                             source_sections.append(original_response[external_start:external_end])
-                            logger.info(f"🔒 COMPLIANCE: Extracted External Search Results section: {original_response[external_start:external_end][:100]}...")
+                            logger.info(f"🔒 COMPLIANCE: Extracted External Search Result Sources section: {original_response[external_start:external_end][:100]}...")
                         
                         # Add sources back to final response
                         if source_sections:
                             final_response += "\n\n" + "\n\n".join(source_sections)
                             logger.info("🔒 COMPLIANCE: Successfully restored source attribution")
-                            logger.info(f"🔒 COMPLIANCE: Final response now has sources: {'**Sources Used:**' in final_response or '**External Search Results:**' in final_response}")
+                            logger.info(f"🔒 COMPLIANCE: Final response now has sources: {'**Sources Used:**' in final_response or '**External Search Result Sources:**' in final_response}")
                     else:
                         logger.info("🔒 COMPLIANCE: Source preservation check passed - no action needed")
                 
@@ -407,10 +409,46 @@ class ChatbotOrchestrator:
         self.quality_evaluator = QualityEvaluator()
         self.compliance_agent = ComplianceAgent()
         
+        # Initialize NEW conversation memory system
+        # self.conversation_memory = ConversationMemory() # REMOVED
+        
+        # Initialize simple conversation history for conversation management ONLY
+        self.simple_history = SimpleConversationHistory(max_history=8, llm_client=self.base_llm.llm)
+        logger.info(f"📝 SIMPLE HISTORY: Initialized with max_history={8} and LLM client")
+        initial_stats = self.simple_history.get_history_stats()
+        logger.info(f"📝 SIMPLE HISTORY: Initial stats: {initial_stats}")
+        
+        # Initialize context management components (simplified - no complex conversation_memory)
+        self.context_updater = ConversationContextUpdater()
+        # Remove complex query enhancer that was causing issues
+        # self.query_enhancer = ContextAwareQueryEnhancer(conversation_memory=self.conversation_memory)
+        self.context_guard = ContextPollutionGuard()
+        
+        # Initialize LLM context analyzer with LLM client from base_llm
+        # self.context_analyzer = LLMContextAnalyzer(llm_client=self.base_llm.llm) # REMOVED
+        # Remove complex query enhancer integration
+        # self.query_enhancer.set_context_analyzer(self.context_analyzer)
+        
         # Session management
         self.sessions: Dict[str, ChatSession] = {}
         
         logger.info("ChatbotOrchestrator initialized successfully")
+    
+    def disable_context_enhancement(self):
+        """Emergency method to disable context enhancement if issues arise"""
+        try:
+            # self.query_enhancer.disable_enhancement() # This line is removed
+            logger.warning("🎼 ORCHESTRATOR: Context enhancement disabled due to issues")
+        except Exception as e:
+            logger.error(f"🎼 ORCHESTRATOR: Error disabling context enhancement: {e}")
+    
+    def enable_context_enhancement(self):
+        """Re-enable context enhancement"""
+        try:
+            # self.query_enhancer.enable_enhancement() # This line is removed
+            logger.info("🎼 ORCHESTRATOR: Context enhancement re-enabled")
+        except Exception as e:
+            logger.error(f"🎼 ORCHESTRATOR: Error enabling context enhancement: {e}")
     
     async def process_message(self, message: ChatMessage, session_id: str) -> ChatResponse:
         """Process a chat message through the complete pipeline"""
@@ -448,7 +486,10 @@ class ChatbotOrchestrator:
                 current_topic=None,
                 previous_calculations=[],
                 created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                updated_at=datetime.utcnow(),
+                # REMOVED: Complex conversation_memory that was causing issues
+                # conversation_memory=self.conversation_memory,
+                simple_history=self.simple_history  # Keep simple history for conversation management
             )
             
             self.sessions[session_id] = ChatSession(
@@ -475,33 +516,41 @@ class ChatbotOrchestrator:
                 return await self._handle_calculator_continuation(message, context)
             
             # Intent classification
+            # Get intent classification
+            logger.info(f"🎼 ORCHESTRATOR: Starting intent classification for message: '{message.content[:100]}...'")
             intent_result = await self.intent_classifier.classify_intent_semantically(message.content, context)
+            logger.info(f"🎼 ORCHESTRATOR: Intent classification result: {intent_result.intent.value} with confidence {intent_result.confidence}")
             logger.info(f"Intent classified: {intent_result.intent.value} (confidence: {intent_result.confidence})")
             
             # Store intent in context for search decision logic
             context.current_intent = intent_result
             
             # Smart routing
+            # Get routing decision
+            logger.info(f"🎼 ORCHESTRATOR: Starting smart routing with intent: {intent_result.intent.value}")
             routing_decision = await self.smart_router.route_query_semantically(intent_result, context)
+            logger.info(f"🎼 ORCHESTRATOR: Routing decision: {routing_decision.route_type.value} with confidence {routing_decision.confidence}")
             logger.info(f"Routing decision: {routing_decision.route_type.value} (confidence: {routing_decision.confidence})")
             
             # Generate response content
             response_content = await self._generate_response_content(routing_decision, message.content, context, intent_result)
             
-            # Quality evaluation (skip for calculator and tool responses)
+            # Quality evaluation (skip for calculator, tool responses, and conversation management)
             quality_score = QualityScore(overall_score=1.0, ragas_scores={}, semantic_scores={}, satisfaction_score=1.0, improvement_areas=[])
-            if routing_decision.route_type not in [RouteType.QUICK_CALCULATOR, RouteType.EXTERNAL_TOOL]:
+            if routing_decision.route_type not in [RouteType.QUICK_CALCULATOR, RouteType.EXTERNAL_TOOL, RouteType.CONVERSATION_MANAGEMENT]:
                 quality_score = await self.quality_evaluator.evaluate_response_quality(message.content, response_content, context)
                 logger.info(f"Quality evaluation: {quality_score.overall_score}")
             
-            # Compliance review (skip for calculator and tool responses)
+            # Compliance review (skip for calculator, tool responses, and conversation management)
             final_response = response_content
             disclaimers = []
-            if routing_decision.route_type not in [RouteType.QUICK_CALCULATOR, RouteType.EXTERNAL_TOOL]:
+            if routing_decision.route_type not in [RouteType.QUICK_CALCULATOR, RouteType.EXTERNAL_TOOL, RouteType.CONVERSATION_MANAGEMENT]:
                 compliance_result = await self.compliance_agent.review_response(response_content, context)
                 final_response = compliance_result.final_response
                 disclaimers = compliance_result.disclaimers
                 logger.info(f"Compliance review: {'rewritten' if compliance_result.was_rewritten else 'no changes'}")
+            else:
+                logger.info(f"Compliance review: Skipped for {routing_decision.route_type.value}")
             
             # Create chat response
             chat_response = ChatResponse(
@@ -521,6 +570,37 @@ class ChatbotOrchestrator:
                 timestamp=datetime.utcnow()
             ))
             
+            # NEW: Update conversation context after response generation
+            try:
+                # RESTORED: Original context updater that maintains RAG context (semantic_themes, current_topic, etc.)
+                await self.context_updater.update_context(session, message, intent_result, final_response)
+                
+                # Clean context to prevent pollution
+                message_count = len(session.messages)
+                session.context = self.context_guard.clean_context(session.context, message_count)
+                
+                # NEW: Add conversation turn to simple history for conversation management ONLY
+                try:
+                    logger.info(f"📝 SIMPLE HISTORY: Attempting to add conversation turn - User: '{message.content[:50]}...', Response: '{final_response[:50]}...'")
+                    
+                    self.simple_history.add_conversation_turn(
+                        user_message=message.content,
+                        bot_response=final_response
+                    )
+                    
+                    # Log the current state of simple history
+                    stats = self.simple_history.get_history_stats()
+                    logger.info(f"📝 SIMPLE HISTORY: Successfully added conversation turn. Current stats: {stats}")
+                    
+                except Exception as e:
+                    logger.error(f"📝 SIMPLE HISTORY: Error adding conversation turn: {e}")
+                    # Don't fail the pipeline if simple history update fails
+                
+                logger.info("🔄 CONTEXT: Context updated and cleaned successfully")
+            except Exception as e:
+                logger.error(f"🔄 CONTEXT: Error updating context: {e}")
+                # Don't fail the pipeline if context update fails
+            
             return chat_response
             
         except Exception as e:
@@ -532,18 +612,8 @@ class ChatbotOrchestrator:
         try:
             logger.info(f"🎼 ORCHESTRATOR: Generating response content for route type: {routing_decision.route_type}")
             
-            # CRITICAL FIX: Add flag to prevent duplicate RAG system calls
-            # This ensures we only call the RAG system once per message processing cycle
-            if not hasattr(context, '_rag_system_called'):
-                context._rag_system_called = False
-            
-            if context._rag_system_called:
-                logger.info("🎼 ORCHESTRATOR: RAG system already called for this message - skipping to prevent duplication")
-                # Return a simple response to avoid infinite loops
-                return "I've already processed your request. Let me know if you need anything else!"
-            
-            # Mark RAG system as called for this message cycle
-            context._rag_system_called = True
+            # REMOVED: Complex duplicate RAG prevention that was causing issues
+            # The RAG system now handles its own deduplication internally
             
             if routing_decision.route_type == RouteType.RAG:
                 logger.info("🎼 ORCHESTRATOR: Routing to RAG system")
@@ -581,6 +651,10 @@ class ChatbotOrchestrator:
             elif routing_decision.route_type == RouteType.CALCULATOR_SELECTION:
                 logger.info("🎼 ORCHESTRATOR: Routing to calculator selection")
                 return await self._handle_calculator_selection(query, context, routing_decision)
+                
+            elif routing_decision.route_type == RouteType.CONVERSATION_MANAGEMENT:
+                logger.info("🎼 ORCHESTRATOR: Routing to conversation management")
+                return await self._handle_conversation_management(query, context)
                 
             else:
                 logger.warning(f"🎼 ORCHESTRATOR: Unknown route type: {routing_decision.route_type}")
@@ -636,26 +710,77 @@ class ChatbotOrchestrator:
             logger.error(f"Error generating calculator selection: {e}")
             return "I can help you calculate your life insurance needs. Would you like to start with a quick calculation?"
     
+    async def _handle_conversation_management(self, query: str, context: ConversationContext) -> str:
+        """Handle conversation management queries using the simple history system"""
+        try:
+            logger.info(f"🗣️ CONVERSATION MANAGEMENT: Processing query: '{query}'")
+            
+            # Log the current state of simple history
+            stats = self.simple_history.get_history_stats()
+            logger.info(f"🗣️ CONVERSATION MANAGEMENT: Current simple history stats: {stats}")
+            
+            # Use the simple conversation history system
+            query_lower = query.lower()
+            logger.info(f"🗣️ CONVERSATION MANAGEMENT: Query type detection - query_lower: '{query_lower}'")
+            
+            # Check for different types of conversation management queries
+            if any(phrase in query_lower for phrase in ["what did we just talk about", "what were we discussing", "what was our conversation about"]):
+                logger.info("🗣️ CONVERSATION MANAGEMENT: Detected 'what did we just talk about' query type")
+                response = await self.simple_history.get_conversation_summary()
+                logger.info(f"🗣️ CONVERSATION MANAGEMENT: Generated summary response: {response[:100]}...")
+                
+            elif any(phrase in query_lower for phrase in ["summarize", "summary", "recap", "what have we covered"]):
+                logger.info("🗣️ CONVERSATION MANAGEMENT: Detected 'summarize' query type")
+                response = await self.simple_history.get_detailed_summary()
+                logger.info(f"🗣️ CONVERSATION MANAGEMENT: Generated detailed summary response: {response[:100]}...")
+                
+            elif any(phrase in query_lower for phrase in ["what was the main topic", "what topic were we on", "what were we focusing on"]):
+                logger.info("🗣️ CONVERSATION MANAGEMENT: Detected 'main topic' query type")
+                response = await self.simple_history.get_main_topic()
+                logger.info(f"🗣️ CONVERSATION MANAGEMENT: Generated main topic response: {response[:100]}...")
+                
+            elif any(phrase in query_lower for phrase in ["repeat", "restate", "say again", "what did you say about"]):
+                logger.info("🗣️ CONVERSATION MANAGEMENT: Detected 'repeat' query type")
+                response = await self.simple_history.get_last_response()
+                logger.info(f"🗣️ CONVERSATION MANAGEMENT: Generated repeat response: {response[:100]}...")
+                
+            elif any(phrase in query_lower for phrase in ["how long have we been talking", "how many questions", "conversation length"]):
+                logger.info("🗣️ CONVERSATION MANAGEMENT: Detected 'metrics' query type")
+                response = await self.simple_history.get_conversation_metrics()
+                logger.info(f"🗣️ CONVERSATION MANAGEMENT: Generated metrics response: {response[:100]}...")
+                
+            else:
+                logger.info("🗣️ CONVERSATION MANAGEMENT: Detected generic query type")
+                # Generic conversation management response
+                response = await self.simple_history.get_generic_response()
+                logger.info(f"🗣️ CONVERSATION MANAGEMENT: Generated generic response: {response[:100]}...")
+            
+            logger.info(f"🗣️ CONVERSATION MANAGEMENT: Final response generated successfully: {response[:100]}...")
+            return response
+            
+        except Exception as e:
+            logger.error(f"🗣️ CONVERSATION MANAGEMENT: Error handling conversation management: {e}")
+            import traceback
+            logger.error(f"🗣️ CONVERSATION MANAGEMENT: Full traceback: {traceback.format_exc()}")
+            return "I'm having trouble accessing our conversation history right now. Could you please rephrase your question?"
+    
     async def _handle_quick_calculator(self, query: str, context: ConversationContext) -> str:
         """Handle quick calculator interactions"""
         try:
             logger.info("🧮 Handling quick calculator request")
             
-            # Check if this is a new calculation request
-            if any(keyword in query.lower() for keyword in ["start", "begin", "new", "calculate", "calculator"]):
-                # Start new calculation session
-                session_id = f"calc_{int(datetime.utcnow().timestamp())}"
-                context.calculator_session = {"session_id": session_id, "type": "quick"}
-                context.calculator_state = "active"
-                context.calculator_type = CalculatorType.QUICK
-                
-                # Get the string response from the calculator
-                calculator_response = await self.quick_calculator.start_calculation_session(session_id, context)
-                return calculator_response
-            else:
-                # This should not happen in normal flow, but handle gracefully
-                return "I'm not sure what you'd like me to calculate. Could you please be more specific about what you need?"
-                
+            # ✅ NO KEYWORD CHECK NEEDED - intent classification and smart routing already handled this
+            
+            # Start new calculation session
+            session_id = f"calc_{int(datetime.utcnow().timestamp())}"
+            context.calculator_session = {"session_id": session_id, "type": "quick"}
+            context.calculator_state = "active"
+            context.calculator_type = CalculatorType.QUICK
+            
+            # Get the string response from the calculator
+            calculator_response = await self.quick_calculator.start_calculation_session(session_id, context)
+            return calculator_response
+            
         except Exception as e:
             logger.error(f"Error handling quick calculator: {e}")
             return f"I encountered an error with the calculator: {str(e)}"
@@ -687,6 +812,26 @@ class ChatbotOrchestrator:
                         logger.error(f"🧮 Calculator error: {calculator_response.get('error', 'Unknown error')}")
                         response_message = f"❌ {calculator_response.get('message', 'Calculation failed')}"
                         context.calculator_state = "error"
+                    elif calculator_response.get("status") == "exited":
+                        # Handle calculator exit
+                        context.calculator_state = None
+                        context.calculator_session = None
+                        context.calculator_type = None
+                        logger.info("🧮 Calculator session exited by user")
+                        # Return to normal conversation flow
+                        return ChatResponse(
+                            content=response_message,
+                            quality_score=1.0,
+                            routing_decision=RoutingDecision(
+                                route_type=RouteType.BASE_LLM,
+                                confidence=1.0,
+                                reasoning="Calculator exited, returning to normal conversation",
+                                tool_type=None,
+                                session_id=context.session_id
+                            ),
+                            disclaimers=[],
+                            metadata={"calculator_exited": True}
+                        )
                     else:
                         # Continue with next question
                         logger.info(f"🧮 Calculator question: {calculator_response.get('status', 'unknown')}")

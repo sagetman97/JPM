@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 class SemanticSmartRouter:
     """Routes queries based on semantic understanding and confidence scores"""
     
-    def __init__(self, rag_system, external_search, tool_integrator, base_llm, calculator_selector, quick_calculator):
-        self.rag_system = rag_system
+    def __init__(self, external_search, tool_integrator, base_llm, calculator_selector, quick_calculator):
         self.external_search = external_search
         self.tool_integrator = tool_integrator
         self.base_llm = base_llm
@@ -25,39 +24,70 @@ class SemanticSmartRouter:
         """Make routing decisions based on semantic understanding"""
         
         try:
-            logger.info(f"Routing query with intent: {intent.intent}, confidence: {intent.confidence}")
+            logger.info(f"🎯 SMART ROUTER: Starting semantic routing")
+            logger.info(f"🎯 SMART ROUTER: Intent enum: {intent.intent}")
+            logger.info(f"🎯 SMART ROUTER: Intent value: {intent.intent.value}")
+            logger.info(f"🎯 SMART ROUTER: Confidence: {intent.confidence}")
+            logger.info(f"🎯 SMART ROUTER: Reasoning: {intent.reasoning}")
             
             # NEW: Handle calculator selection choice
             if intent.intent == IntentCategory.CALCULATOR_SELECTION_CHOICE:
+                logger.info("🎯 SMART ROUTER: Routing to calculator selection choice")
                 return await self._route_to_calculator_selection(intent, context)
             
             # NEW: Handle calculator choice selection
             elif intent.intent == IntentCategory.CALCULATOR_CHOICE_SELECTED:
+                logger.info("🎯 SMART ROUTER: Routing to selected calculator")
                 return await self._route_to_selected_calculator(intent, context)
             
             # ONLY route to calculator if intent ACTUALLY requires calculation
             elif intent.intent.value in ["insurance_needs_calculation", "portfolio_integration_analysis"]:
+                logger.info("🎯 SMART ROUTER: Routing to calculator (intent.value check)")
                 return await self._route_to_calculator(intent, context)
             
             # Check if it's a knowledge-seeking query
             elif intent.intent.value in ["life_insurance_education", "product_comparison", "scenario_analysis"]:
+                logger.info("🎯 SMART ROUTER: Routing to knowledge sources")
                 return await self._route_to_knowledge_sources(intent, context)
             
             # Check if it's client assessment support
             elif intent.intent.value == "client_assessment_support":
+                logger.info("🎯 SMART ROUTER: Routing to client assessment")
                 return await self._route_to_client_assessment(intent, context)
             
             # Check if it's portfolio integration analysis
             elif intent.intent.value == "portfolio_integration_analysis":
+                logger.info("🎯 SMART ROUTER: Routing to portfolio analysis")
                 return await self._route_to_portfolio_analysis(intent, context)
             
-            # Default fallback
+            # NEW: Handle conversation management queries
+            elif intent.intent == IntentCategory.CONVERSATION_MANAGEMENT:
+                logger.info("🎯 SMART ROUTER: Routing to conversation management")
+                return await self._route_to_conversation_management(intent, context)
+            
+            # Default fallback - but check for conversation management keywords first
             else:
+                logger.info(f"🎯 SMART ROUTER: Defaulting to fallback for intent: {intent.intent.value}")
+                
+                # LAST RESORT: Check if this might be conversation management despite intent classification
+                query_lower = intent.semantic_goal.lower() if intent.semantic_goal else ""
+                conversation_keywords = [
+                    "what did we just talk about", "what were we discussing", "summarize our conversation",
+                    "what have we covered", "what was the main topic", "repeat what you said",
+                    "how long have we been talking", "what questions have I asked"
+                ]
+                
+                if any(keyword in query_lower for keyword in conversation_keywords):
+                    logger.info("🎯 SMART ROUTER: Detected conversation management keywords in fallback, routing to conversation management")
+                    return await self._route_to_conversation_management(intent, context)
+                
                 return await self._route_to_fallback(intent, context)
                 
         except Exception as e:
-            logger.error(f"Error in smart routing: {e}")
-            return self._get_error_routing_decision(intent, context)
+            logger.error(f"🎯 SMART ROUTER: Error in smart routing: {e}")
+            import traceback
+            logger.error(f"🎯 SMART ROUTER: Full traceback: {traceback.format_exc()}")
+            return self._get_error_routing_decision(intent, context, f"Smart routing error: {str(e)}")
     
     async def _route_to_calculator(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
         """Route to appropriate calculator based on intent"""
@@ -196,36 +226,20 @@ class SemanticSmartRouter:
                 needs_search = intent.needs_external_search
                 logger.info(f"Intent classifier determined search need: {needs_search}")
             
-            # Always start with RAG
-            query = intent.semantic_goal if intent.semantic_goal else "general knowledge query"
+            # Determine route type based on intent and context
+            # Don't call RAG here - let the orchestrator handle RAG execution
+            route_type = RouteType.RAG
+            reasoning = f"Knowledge query routed to RAG system for comprehensive response"
             
-            rag_result = await self.rag_system.get_semantic_response(
-                query, 
-                context, 
-                intent,
-                needs_external_search=needs_search  # Pass search decision directly
-            )
-            
-            # Determine route type based on RAG quality
-            if rag_result.quality_score >= config.min_rag_confidence:
-                route_type = RouteType.RAG
-                reasoning = f"RAG provided high-quality response (score: {rag_result.quality_score:.2f})"
-            else:
-                route_type = RouteType.RAG  # Still use RAG, but note low quality
-                reasoning = f"RAG response quality below threshold (score: {rag_result.quality_score:.2f}), but proceeding with RAG"
-            
-            # Cache the RAG response to avoid duplicate calls in orchestrator
             return RoutingDecision(
                 route_type=route_type,
-                confidence=rag_result.quality_score,
+                confidence=intent.confidence,
                 reasoning=reasoning,
                 session_id=context.session_id,
                 metadata={
-                    "rag_quality_score": rag_result.quality_score,
-                    "source_documents": len(rag_result.source_documents),
-                    "semantic_queries": rag_result.semantic_queries,
                     "needs_external_search": needs_search,  # Pass through the search decision
-                    "cached_rag_response": rag_result.response  # Cache the response to avoid duplicate calls
+                    "intent_confidence": intent.confidence,
+                    "semantic_goal": intent.semantic_goal
                 }
             )
             
@@ -278,6 +292,25 @@ class SemanticSmartRouter:
         except Exception as e:
             logger.error(f"Error routing to portfolio analysis: {e}")
             return self._get_error_routing_decision(intent, context, f"Portfolio analysis routing failed: {str(e)}")
+    
+    async def _route_to_conversation_management(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
+        """Route conversation management queries to the memory system"""
+        try:
+            logger.info("🎯 SMART ROUTER: Creating conversation management routing decision")
+            
+            return RoutingDecision(
+                route_type=RouteType.CONVERSATION_MANAGEMENT,
+                confidence=intent.confidence,
+                reasoning=f"User is asking about conversation state: {intent.reasoning}",
+                tool_type=None,
+                session_id=context.session_id
+            )
+            
+        except Exception as e:
+            logger.error(f"🎯 SMART ROUTER: Error routing to conversation management: {e}")
+            import traceback
+            logger.error(f"🎯 SMART ROUTER: Full traceback: {traceback.format_exc()}")
+            return self._get_error_routing_decision(intent, context, f"Conversation management routing failed: {str(e)}")
     
     async def _route_to_fallback(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
         """Route to base LLM fallback"""
@@ -546,4 +579,6 @@ class ToolIntegrator:
             
         except Exception as e:
             logger.error(f"Error cleaning up returned reports: {e}")
-            return 0 
+            return 0
+    
+ 

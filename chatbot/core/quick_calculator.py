@@ -61,21 +61,21 @@ class QuickCalculator:
             },
             {
                 "id": "mortgage_balance",
-                "question": "What is your total debt (mortgage, loans, etc.)? (e.g., $300,000)",
+                "question": "What is your total debt? (e.g., $300,000)",
                 "type": "currency",
                 "required": True,
                 "validation": {"min": 0, "max": 10000000}
             },
             {
                 "id": "total_assets",
-                "question": "What are your estimated total assets (savings, investments, etc.)? (e.g., $150,000)",
+                "question": "What are your total assets? (e.g., $150,000)",
                 "type": "currency",
                 "required": True,
                 "validation": {"min": 0, "max": 10000000}
             },
             {
                 "id": "provide_education",
-                "question": "Do you want to provide for your children's education? (yes/no)",
+                "question": "Do you want to provide for children's education? (yes/no)",
                 "type": "boolean",
                 "required": False,
                 "validation": {}
@@ -96,7 +96,7 @@ class QuickCalculator:
             },
             {
                 "id": "cash_value_importance",
-                "question": "Is accumulating savings in your life insurance policy important to you? (yes/no/unsure)",
+                "question": "Is accumulating savings in your life insurance policy important? (yes/no/unsure)",
                 "type": "select",
                 "required": False,
                 "options": ["yes", "no", "unsure"],
@@ -167,8 +167,8 @@ class QuickCalculator:
                 "message": f"Text must be {max_length} characters or less"
             }
         
-        return {"valid": True, "value": value} 
-
+        return {"valid": True, "value": value}
+    
     async def start_calculation_session(self, session_id: str, context: ConversationContext) -> str:
         """Start a new calculation session"""
         try:
@@ -203,6 +203,20 @@ class QuickCalculator:
         """Process user's answer to a calculator question"""
         try:
             logger.info(f"🧮 Processing answer: '{answer}'")
+            
+            # Check for exit commands
+            if answer.lower().strip() in ["stop", "exit", "quit", "end"]:
+                logger.info("🧮 User requested to exit calculator")
+                # Clear calculator session
+                context.calculator_state = None
+                context.calculator_session = None
+                context.calculator_type = None
+                
+                return {
+                    "status": "exited",
+                    "message": "Okay, what else would you like to discuss instead?",
+                    "calculator_exited": True
+                }
             
             # Get current session from context
             session = context.calculator_session
@@ -249,7 +263,7 @@ class QuickCalculator:
                     next_question = await self._ask_next_question(context)
                     return {
                         "status": "question",
-                        "message": f"Thank you! {next_question}",
+                        "message": f"Thank you! {next_question}\n\nReply STOP to end calculator.",
                         "question": next_question,
                         "progress": f"{session['current_question_index']}/{len(self.standard_questions)} questions completed"
                     }
@@ -418,7 +432,7 @@ class QuickCalculator:
                 "result": result,
                 "recommendation": result.get("recommendation", "Based on your information, we recommend consulting with a licensed insurance professional.")
             }
-            
+                
         except Exception as e:
             logger.error(f"🧮 Error completing calculation: {e}")
             import traceback
@@ -476,12 +490,12 @@ class QuickCalculator:
             # Calculate monthly savings recommendation
             monthly_savings = max(300, int(coverage * 0.0001))  # Rough estimate
             max_monthly = monthly_savings * 2  # Conservative max
-            
+        
             # Calculate savings level indicator
             percentage = 50  # Default to medium
             if max_monthly and monthly_savings:
                 percentage = min((monthly_savings / max_monthly) * 100, 100)
-            
+        
             return f"""Generate a comprehensive life insurance calculation response for chat that explains the results clearly.
 
 **Calculation Results:**
@@ -522,7 +536,7 @@ Please format this as a friendly, conversational response that explains the resu
         except Exception as e:
             logger.error(f"🧮 Error building calculation response prompt: {e}")
             return "Generate a comprehensive life insurance calculation response."
-
+    
     def _get_default_calculation_response(self, result: Dict[str, Any]) -> str:
         """Default calculation response matching frontend results page - chat-optimized with full details"""
         try:
@@ -641,7 +655,7 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
         except Exception as e:
             logger.error(f"Error generating default response: {e}")
             return "Your calculation is complete! I've determined your life insurance needs. What would you like to know more about?"
-
+    
     async def _generate_welcome_message(self, context: ConversationContext) -> str:
         """Generate a personalized welcome message"""
         try:
@@ -771,7 +785,7 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
             
             return {
                 "status": "validation_failed",
-                "message": response,
+                "message": response + "\n\nReply STOP to end calculator.",
                 "question": question["question"],
                 "error": error_message,
                 "suggestion": suggestion
@@ -793,7 +807,7 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
             
             return {
                 "status": "clarification_needed",
-                "message": clarification,
+                "message": clarification + "\n\nReply STOP to end calculator.",
                 "question": question["question"],
                 "original_answer": original_answer
             }
@@ -909,7 +923,7 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
                         return {"valid": False, "value": None, "error": f"Value must be at most {validation['max']}"}
                     
                     return {"valid": True, "value": value, "parsed_from": answer}
-            
+        
             elif question_type == "select":
                 # Try to match options
                 options = question.get("options", [])
@@ -920,7 +934,7 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
                         return {"valid": True, "value": option, "parsed_from": answer}
                 
                 return {"valid": False, "value": None, "error": f"Please choose from: {', '.join(options)}"}
-            
+        
             elif question_type == "boolean":
                 # Try to parse yes/no
                 answer_lower = answer.lower().strip()
@@ -997,7 +1011,7 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
         except Exception as e:
             logger.error(f"🧮 Error in direct parsing: {e}")
             return {"valid": False, "value": None, "error": "Error parsing answer"}
-
+    
     async def _try_semantic_parsing(self, answer: str, question: Dict[str, Any]) -> Dict[str, Any]:
         """Try to parse answer using semantic understanding with LLM"""
         try:
@@ -1012,8 +1026,8 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
             
             Extract the relevant value based on the question type and format it appropriately.
             Return only the parsed value, nothing else.
-            """
-            
+                """
+                
             response = await self.llm.chat.completions.create(
                 model=config.openai_model,
                 messages=[{"role": "user", "content": prompt}],
@@ -1030,11 +1044,11 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
             else:
                 logger.warning(f"🧮 Semantic parsing validation failed: {validation_result['error']}")
                 return validation_result
-                
+            
         except Exception as e:
             logger.error(f"🧮 Error in semantic parsing: {e}")
             return {"valid": False, "value": None, "error": "Error in semantic parsing"}
-
+    
     def _try_pattern_matching(self, answer: str, question: Dict[str, Any]) -> Dict[str, Any]:
         """Try to parse answer using pattern matching"""
         try:

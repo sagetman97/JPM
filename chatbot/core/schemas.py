@@ -20,6 +20,7 @@ class IntentCategory(str, Enum):
     GENERAL_FINANCIAL_ADVICE = "general_financial_advice"
     CALCULATOR_SELECTION_CHOICE = "calculator_selection_choice"
     CALCULATOR_CHOICE_SELECTED = "calculator_choice_selected"
+    CONVERSATION_MANAGEMENT = "conversation_management"
 
 class CalculatorType(str, Enum):
     """Types of insurance calculators"""
@@ -36,6 +37,7 @@ class RouteType(str, Enum):
     EXTERNAL_TOOL = "external_tool"
     BASE_LLM = "base_llm"
     CALCULATOR_SELECTION = "calculator_selection"
+    CONVERSATION_MANAGEMENT = "conversation_management"
 
 class KnowledgeLevel(str, Enum):
     """User knowledge levels"""
@@ -93,6 +95,10 @@ class ConversationContext(BaseModel):
     
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Context creation time")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update time")
+    
+    # NEW: Conversation memory system
+    conversation_memory: Optional[Any] = Field(default=None, exclude=True, description="Conversation memory system for context awareness")
+    simple_history: Optional[Any] = Field(default=None, exclude=True, description="Simple conversation history for conversation management")
 
 class RAGResult(BaseModel):
     """Result from RAG system"""

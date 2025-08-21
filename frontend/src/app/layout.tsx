@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,10 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="w-full max-w-7xl">
             <nav className="flex items-center justify-between px-12 pt-8 pb-4 bg-[#1B365D] shadow text-white rounded-t-3xl">
               <div className="flex items-center h-10">
-                <span className="text-white text-3xl font-bold tracking-tight" style={{ fontFamily: 'Georgia, Times New Roman, serif', letterSpacing: '0.02em', fontSize: '2.25rem', lineHeight: '2.5rem' }}>J.P.Morgan</span>
+                <Link href="/" className="text-white text-3xl font-bold tracking-tight hover:opacity-80 transition-opacity cursor-pointer" style={{ fontFamily: 'Georgia, Times New Roman, serif', letterSpacing: '0.02em', fontSize: '2.25rem', lineHeight: '2.5rem' }}>J.P.Morgan</Link>
               </div>
               <div className="flex items-center gap-8">
-                <a href="#" className="text-white text-base font-semibold hover:underline">Dashboard</a>
+                <Link href="/" className="text-white text-base font-semibold hover:underline">Dashboard</Link>
                 <a href="#" className="text-white text-base font-semibold hover:underline">Clients</a>
                 <a href="#" className="text-white text-base font-semibold hover:underline">Reports</a>
                 <a href="#" className="text-white text-base font-semibold hover:underline">Settings</a>

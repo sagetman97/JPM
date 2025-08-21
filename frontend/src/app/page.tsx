@@ -14,7 +14,7 @@ const cards = [
     isLink: true,
   },
   {
-    title: "Quick Insurance Calculator",
+    title: "Quick Coverage Calculator",
     desc: "Get a fast estimate of life insurance needs with just a few questions.",
     icon: (
       <svg className="w-10 h-10 text-[#1B365D]" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3v.75m-9-9v.75m0 3v.75m0 3v.75m0 3v.75M3.75 6.75A2.25 2.25 0 016 4.5h12a2.25 2.25 0 012.25 2.25v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6.75z" /></svg>

@@ -176,12 +176,12 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
         print("This is the heavy processing that happens after user confirms form data")
         
         # Import calculation modules
-        # from life_insurance_calculator import LifeInsuranceCalculator
-        # from portfolio_calculator import PortfolioCalculator
+        from life_insurance_calculator import LifeInsuranceCalculator
+        from portfolio_calculator import PortfolioCalculator
         
         # Initialize calculators
         life_insurance_calc = LifeInsuranceCalculator()
-        # portfolio_calc = PortfolioCalculator() # This line was commented out in the original file
+        portfolio_calc = PortfolioCalculator()
         
         # Calculate life insurance needs
         print("Calculating life insurance needs...")
@@ -189,7 +189,8 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
         
         # Calculate portfolio metrics
         print("Calculating portfolio metrics...")
-        # portfolio_metrics = portfolio_calc.calculate_portfolio_metrics(request.portfolio_data) # This line was commented out in the original file
+        portfolio_calc = PortfolioCalculator()
+        portfolio_metrics = portfolio_calc.calculate_portfolio_metrics(request.portfolio_data)
         
         # Generate AI insights
         print("Generating AI insights...")
@@ -216,9 +217,12 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
         
         print(f"DEBUG: Cash value projection generated - {len(cash_value_projection)} years, final value: ${cash_value_projection[-1]['value'] if cash_value_projection else 0:,.0f}")
         
+        # Calculate MEC limit for IUL recommendations
+        max_monthly_contribution = _calculate_mec_limit(client_age, request.portfolio_data.get("monthly_income", 0), life_insurance_needs.total_need)
+        
         comprehensive_analysis = {
             "life_insurance_needs": life_insurance_needs,
-            "portfolio_metrics": {}, # portfolio_metrics, # This line was commented out in the original file
+            "portfolio_metrics": portfolio_metrics,
             "key_findings": ai_analysis.key_findings,
             "risk_analysis": ai_analysis.risk_analysis,
             "opportunities": ai_analysis.opportunities,
@@ -239,7 +243,7 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
                 "monthly_contribution": monthly_contribution
             },
             "recommended_monthly_savings": monthly_contribution,
-            "max_monthly_contribution": _calculate_mec_limit(client_age, request.portfolio_data.get("monthly_income", 0), life_insurance_needs.total_need)
+            "max_monthly_contribution": max_monthly_contribution
         }
         
         processing_time = time.time() - start_time

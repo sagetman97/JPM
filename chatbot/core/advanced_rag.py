@@ -9,6 +9,9 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from .schemas import RAGResult, ConversationContext, IntentResult
 from .config import config
+# REMOVED: Complex context-aware imports that were causing issues
+# from .context_manager import ContextAwareQueryEnhancer
+# from .context_aware_retriever import ContextAwareDocumentRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +233,7 @@ class MultiQueryRetriever:
                         with_payload=True,
                         with_vectors=False
                     )
-                    
+                
                     # Fix 1: Correct document key mismatch in MultiQueryRetriever
                     # Convert to document format
                     for result in search_results:
@@ -371,6 +374,12 @@ class EnhancedRAGSystem:
         self.multi_query_retriever = MultiQueryRetriever(self.qdrant_client)
         self.document_processor = DocumentProcessor()
         
+        # Initialize intelligent context-aware query enhancer
+        # self.query_enhancer = ContextAwareQueryEnhancer() # REMOVED: Simple context system
+        
+        # Initialize context-aware document retriever # REMOVED: Simple context system
+        # self.context_aware_retriever = ContextAwareDocumentRetriever() # REMOVED: Simple context system
+        
     def _ensure_collection_exists(self):
         """Ensure Qdrant collection exists"""
         
@@ -445,10 +454,25 @@ class EnhancedRAGSystem:
         try:
             logger.info(f"🔍 RAG SYSTEM: Starting semantic response generation for query: '{query[:100]}...'")
             
+            # NEW: Intelligently enhance query with conversation context for better RAG retrieval
+            # This system now understands semantic relationships and follow-up questions
+            # try: # REMOVED: Simple context system
+            #     enhanced_query = await self.query_enhancer.enhance_query_for_rag(query, context) # REMOVED: Simple context system
+            #     if enhanced_query != query: # REMOVED: Simple context system
+            #         logger.info(f"🔍 RAG SYSTEM: Query intelligently enhanced: '{query[:50]}...' -> '{enhanced_query[:100]}...'") # REMOVED: Simple context system
+            #         query = enhanced_query  # Use enhanced query for retrieval # REMOVED: Simple context system
+            # except Exception as e: # REMOVED: Simple context system
+            #     logger.error(f"🔍 RAG SYSTEM: Error in query enhancement: {e}") # REMOVED: Simple context system
+            #     # Continue with original query if enhancement fails # REMOVED: Simple context system
+            
             # CRITICAL FIX: Use MultiQueryRetriever for comprehensive document retrieval
             # This ensures we get all relevant documents in a single call instead of multiple calls
             logger.info("🔍 RAG SYSTEM: Using MultiQueryRetriever for comprehensive document retrieval")
-            documents = await self.multi_query_retriever.retrieve_documents([query], context, k=15)
+            raw_documents = await self.multi_query_retriever.retrieve_documents([query], context, k=15)
+            
+            # SIMPLIFIED: Use original simple context system for RAG (restore what was working)
+            # Remove complex conversation_memory integration that was causing issues
+            documents = raw_documents
             
             if not documents:
                 logger.warning("🔍 RAG SYSTEM: No documents retrieved, using fallback response")
@@ -471,52 +495,16 @@ class EnhancedRAGSystem:
             search_sources = ""
             search_result = None
             
-            # CRITICAL FIX: Check if we've already processed a semantically similar query
-            # This prevents the RAG system from calling external search multiple times for the same intent
-            if not hasattr(context, '_processed_queries'):
-                context._processed_queries = set()
+            # SIMPLIFIED: Basic external search logic
+            # The external search system handles its own caching and deduplication
             
-            # Create a semantic hash of the query to detect duplicates
-            # Use the intent and key terms to identify semantically similar queries
-            semantic_key = self._create_semantic_query_key(query, intent_result)
-            
-            # Check if we already have cached external search results for this semantic key
-            if not hasattr(context, '_cached_search_results'):
-                context._cached_search_results = {}
-            
-            has_cached_results = semantic_key in context._cached_search_results
-            
-            if semantic_key in context._processed_queries:
-                logger.info(f"🔍 RAG SYSTEM: Semantically similar query already processed: {semantic_key}")
-                if has_cached_results:
-                    logger.info(f"🔍 RAG SYSTEM: Using cached external search results for: {semantic_key}")
-                    # Use cached results instead of calling external search again
-                    needs_external_search = False
-                else:
-                    logger.info(f"🔍 RAG SYSTEM: No cached results, allowing external search for: {semantic_key}")
-            else:
-                context._processed_queries.add(semantic_key)
-                logger.info(f"🔍 RAG SYSTEM: New query detected, adding to processed set: {semantic_key}")
-            
-            # Check if external search supplementation is needed - ONLY ONCE per query
+            # SIMPLIFIED: Basic external search logic
             should_search = needs_external_search and self.external_search_system
             if should_search:
                 logger.info("🔍 RAG SYSTEM: External search supplementation requested")
-                logger.info(f"🔍 RAG SYSTEM: Calling external search with needs_external_search={should_search}")
                 
-                # Add a flag to prevent duplicate external search calls for the same query
-                search_cache_key = f"rag_search_{hash(query)}_{context.session_id}"
-                if not hasattr(context, '_external_search_called'):
-                    context._external_search_called = set()
-                
-                if search_cache_key not in context._external_search_called:
-                    context._external_search_called.add(search_cache_key)
+                try:
                     supplemented_response, search_result = await self._supplement_with_external_search(query, rag_response, context, intent_result, should_search)
-                    
-                    # Cache the search results for reuse
-                    if search_result:
-                        context._cached_search_results[semantic_key] = search_result
-                        logger.info(f"🔍 RAG SYSTEM: Cached external search results for semantic key: {semantic_key}")
                     
                     if supplemented_response != rag_response:
                         logger.info("🔍 RAG SYSTEM: Response supplemented with external search")
@@ -526,26 +514,11 @@ class EnhancedRAGSystem:
                         search_sources = await self._get_search_sources(query, context, search_result)
                     else:
                         logger.info("🔍 RAG SYSTEM: External search supplementation completed (no changes)")
-                else:
-                    logger.info("🔍 RAG SYSTEM: External search already called for this query - skipping to prevent duplication")
+                except Exception as e:
+                    logger.error(f"🔍 RAG SYSTEM: Error in external search supplementation: {e}")
+                    # Continue without external search if it fails
             else:
                 logger.info("🔍 RAG SYSTEM: No external search supplementation needed")
-            
-            # If we didn't call external search but have cached results, use them
-            if not should_search and has_cached_results and not search_result:
-                logger.info(f"🔍 RAG SYSTEM: Using cached external search results for response generation")
-                cached_search_result = context._cached_search_results[semantic_key]
-                
-                # Combine RAG response with cached search results
-                combined_response = self._combine_rag_and_search(rag_response, cached_search_result, query)
-                if combined_response != rag_response:
-                    logger.info("🔍 RAG SYSTEM: Response combined with cached external search results")
-                    rag_response = combined_response
-                    sources_used.append("External Search (Tavily) - Cached")
-                    # Get search sources from cached results
-                    search_sources = await self._get_search_sources(query, context, cached_search_result)
-                else:
-                    logger.info("🔍 RAG SYSTEM: Cached search results combination completed (no changes)")
             
             # Evaluate response quality
             quality_score = await self._evaluate_response_quality(query, rag_response, documents, context)
@@ -556,7 +529,7 @@ class EnhancedRAGSystem:
                 rag_response += f"\n\n**Sources Used:** {', '.join(sources_used)}"
                 if search_sources:
                     logger.info(f"🔍 RAG SYSTEM: Adding search sources to response: {search_sources[:200]}...")
-                    rag_response += f"\n\n**External Search Results:**\n{search_sources}"
+                    rag_response += f"\n\n**External Search Result Sources:**\n{search_sources}"
                 else:
                     logger.info("🔍 RAG SYSTEM: No search sources to add")
             else:
@@ -726,32 +699,114 @@ class EnhancedRAGSystem:
             return ""
     
     def _build_response_generation_prompt(self, query: str, doc_context: str, context: ConversationContext) -> str:
-        """Build prompt for response generation using retrieved documents"""
+        """Build prompt for response generation using retrieved documents with ChatGPT-like context awareness"""
+        
+        # RESTORED: Use original simple context system that was working before
+        # Remove complex conversation_memory integration that was causing issues
+        conversation_context = ""
+        
+        # Use original simple context fields that were working
+        if context.current_topic:
+            conversation_context += f"**Current Conversation Focus:** {context.current_topic}\n"
+        
+        if context.semantic_themes:
+            recent_themes = context.semantic_themes[-5:]
+            conversation_context += f"**Recent Topics Discussed:** {', '.join(recent_themes)}\n"
+            
+            if len(recent_themes) > 0:
+                conversation_context += f"**Most Recent Topic:** {recent_themes[-1]}\n"
+        
+        if context.user_goals:
+            recent_goals = context.user_goals[-3:]
+            conversation_context += f"**Your Goals:** {', '.join(recent_goals)}\n"
+        
+        logger.info("🔍 RAG SYSTEM: Using original simple context system for response generation")
+        
+        # Detect if this is a follow-up question with enhanced patterns
+        follow_up_indicators = [
+            'go deeper', 'tell me more', 'explain', 'how does', 'what about',
+            'can you', 'could you', 'expand on', 'elaborate', 'dive into',
+            'restate', 'repeat', 'say that again', 'clarify', 'what do you mean',
+            'i don\'t understand', 'confused', 'lost me', 'help me understand',
+            'more about', 'more on', 'further', 'additional', 'extra'
+        ]
+        
+        is_follow_up = any(indicator in query.lower() for indicator in follow_up_indicators)
+        
+        # Also check for context continuation indicators
+        context_continuation_indicators = [
+            'this', 'that', 'it', 'they', 'them', 'those', 'these',
+            'the', 'a', 'an', 'some', 'any', 'all', 'both', 'either', 'neither'
+        ]
+        
+        has_context_continuation = any(indicator in query.lower() for indicator in context_continuation_indicators)
+        is_follow_up = is_follow_up or has_context_continuation
+        
+        # Build comprehensive context-aware instructions
+        context_instructions = ""
+        if is_follow_up and context.semantic_themes:
+            # For follow-up questions, emphasize using previous context
+            most_recent_theme = context.semantic_themes[-1]
+            recent_themes = context.semantic_themes[-3:]  # Last 3 themes for context
+            
+            context_instructions = f"""
+**IMPORTANT - This is a follow-up question!** 
+- The user is asking for more details about: {most_recent_theme}
+- Recent conversation context: {', '.join(recent_themes)}
+- Connect your answer to what we discussed previously
+- Reference the previous topic naturally in your response
+- Build upon the knowledge we've already established
+- If the user asks about a component (like "cash value"), relate it to the main topic we discussed
+"""
+        elif context.current_topic and context.current_topic != 'General':
+            # For related questions, maintain conversation flow
+            context_instructions = f"""
+**Conversation Context:**
+- We're discussing: {context.current_topic}
+- Recent themes: {', '.join(context.semantic_themes[-3:]) if context.semantic_themes else 'None'}
+- Maintain the flow and build on what we've covered
+- Reference relevant previous topics when helpful
+"""
+        
         return f"""
-        You are a knowledgeable financial advisor assistant. Answer the user's question using ONLY the information provided in the document context below.
-        
-        **User Question:** {query}
-        **User Knowledge Level:** {context.knowledge_level.value}
-        
-        **Document Context:**
-        {doc_context}
-        
-        **Instructions:**
-        1. **Use ONLY the provided document context** - do not add external knowledge
-        2. **Answer the specific question asked** - be direct and relevant
-        3. **Cite sources** when referencing specific information
-        4. **Adapt to user's knowledge level** - use appropriate terminology
-        5. **Be comprehensive** but concise
-        6. **If information is missing**, acknowledge what you don't know
-        
-        **Response Format:**
-        - Start with a direct answer to the question
-        - Provide supporting details from the documents
-        - Include source citations where relevant
-        - End with actionable next steps if applicable
-        
-        **Generate a helpful, accurate response based on the document context:**
-        """
+You are a knowledgeable financial advisor assistant having a natural conversation with a client. Answer the user's question using the provided document context while maintaining conversation flow and context awareness.
+
+**User Question:** {query}
+**User Knowledge Level:** {context.knowledge_level.value}
+
+{conversation_context}
+
+{context_instructions}
+
+**Document Context:**
+{doc_context}
+
+**Instructions:**
+1. **Use ONLY the provided document context** - do not add external knowledge
+2. **Answer the specific question asked** - be direct and relevant
+3. **DO NOT cite specific documents** - do not mention "Document 1", "Document 2", etc. in your response
+4. **DO NOT include a sources section** - source attribution is handled separately
+5. **Adapt to user's knowledge level** - use appropriate terminology
+6. **Be comprehensive** but concise
+7. **If information is missing**, acknowledge what you don't know
+8. **Maintain conversation flow** - consider the conversation context when appropriate
+9. **Build on previous topics** - reference recent themes if relevant to the current question
+10. **For follow-up questions**, connect your answer to what we discussed previously
+11. **Be conversational** - like ChatGPT, maintain context without being robotic
+
+**Response Format:**
+- Start with a direct answer to the question
+- If this is a follow-up, briefly reference what we discussed before (e.g., "Building on our discussion of IUL...")
+- Provide supporting details from the documents WITHOUT citing specific document numbers
+- Write in a natural, conversational tone - do not mention "Document 1", "according to Document 2", etc.
+- Reference conversation context when it enhances the response
+- For component questions (like "cash value"), explain how it relates to the main topic we discussed
+- End with actionable next steps if applicable
+- Maintain a conversational tone that feels natural and contextual
+- Do NOT include any "Sources:" section or document references in your response
+
+**Generate a helpful, accurate, and contextually aware response based on the document context:**
+"""
     
     def _get_fallback_response(self, documents: List[Dict[str, Any]], query: str = None, context: ConversationContext = None) -> str:
         """Get fallback response when document retrieval or processing fails"""
@@ -832,17 +887,24 @@ class EnhancedRAGSystem:
         **Generated Response:** {response}
         **Available Documents:** {len(documents)} documents
         
+        **Conversation Context:**
+        - Current Topic: {context.current_topic or 'General'}
+        - Recent Themes: {', '.join(context.semantic_themes[-3:]) if context.semantic_themes else 'None'}
+        - User Goals: {', '.join(context.user_goals[-2:]) if context.user_goals else 'None'}
+        - Knowledge Level: {context.knowledge_level.value if hasattr(context, 'knowledge_level') else 'Unknown'}
+        
         **Evaluation Criteria (Score 0.0-1.0):**
         1. **Faithfulness (0.0-1.0):** Does the response accurately reflect the information in the documents?
         2. **Answer Relevancy (0.0-1.0):** Does the response directly answer the user's question?
         3. **Context Precision (0.0-1.0):** Are the retrieved documents relevant to the query?
         4. **Context Recall (0.0-1.0):** Does the response use the most relevant information from the documents?
+        5. **Conversation Continuity (0.0-1.0):** Does the response maintain conversation flow and context?
         
         **Scoring Guidelines:**
-        - 0.0-0.3: Poor quality, inaccurate, irrelevant
-        - 0.4-0.6: Moderate quality, some inaccuracies, partially relevant
-        - 0.7-0.8: Good quality, mostly accurate, relevant
-        - 0.9-1.0: Excellent quality, highly accurate, very relevant
+        - 0.0-0.3: Poor quality, inaccurate, irrelevant, breaks conversation flow
+        - 0.4-0.6: Moderate quality, some inaccuracies, partially relevant, limited conversation continuity
+        - 0.7-0.8: Good quality, mostly accurate, relevant, maintains conversation flow
+        - 0.9-1.0: Excellent quality, highly accurate, very relevant, excellent conversation continuity
         
         **Return only a single number between 0.0 and 1.0 representing the overall quality score:**
         """
@@ -1301,7 +1363,7 @@ class EnhancedRAGSystem:
                     source_lines.append(f"{i}. {title}")
             
             if source_lines:
-                final_sources = "**Sources:**\n" + "\n".join(source_lines)
+                final_sources = "\n".join(source_lines)
                 logger.info(f"🔍 RAG SYSTEM: Generated sources: {final_sources[:200]}...")
                 return final_sources
             else:
