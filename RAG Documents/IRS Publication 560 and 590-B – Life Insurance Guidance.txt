@@ -1,0 +1,128 @@
+📘 IRS Publication 560 and 590-B – Life Insurance Guidance for RAG Systems (2024 Edition)
+🔹 Publication 560: Retirement Plans for Small Business (SEP, SIMPLE, and Qualified Plans)
+🔸 Purpose
+Provides guidance on setting up and administering tax-advantaged retirement plans for small business owners and self-employed individuals. Covers:
+
+SEP (Simplified Employee Pension)
+
+SIMPLE IRA (Savings Incentive Match Plan)
+
+Qualified Plans (e.g., profit-sharing, 401(k), defined benefit plans)
+
+🔸 Key Relevance to Life Insurance
+While IRAs themselves cannot hold life insurance, certain employer-sponsored qualified retirement plans (QRPs) can include life insurance policies under strict limitations:
+
+Life insurance may be held inside a qualified plan (not IRA), but only as an “incidental benefit” (IRC §401(a), Treas. Reg. §1.401-1(b)(1)(i))
+
+🔹 “Incidental Benefit” Rule (from Treas. Reg. §1.401-1(b)(1)(i))
+This rule outlines how much life insurance a qualified plan (e.g., defined benefit or profit-sharing) may hold:
+
+Whole Life Insurance: premiums must not exceed 50% of total annual contributions made to the participant’s account.
+
+Term/Universal Life Insurance: premiums must not exceed 25% of total annual contributions.
+
+Purpose: Ensure retirement income remains the primary objective—not insurance accumulation.
+
+RAG Note: Advisors may ask whether a qualified plan can include life insurance. The answer is yes only under the “incidental benefit” rule.
+
+🔸 SEP and SIMPLE IRAs – Life Insurance Prohibition
+SEP IRAs and SIMPLE IRAs are IRAs, so:
+
+No life insurance is permitted as an investment inside these accounts (IRC §408(a)(3))
+
+Employers can’t contribute toward life insurance premiums within SEP/SIMPLE contributions.
+
+IRS Pub 560 redirects readers to Pub 590-B for prohibited investments.
+
+RAG Output Example:
+
+“No, life insurance policies—including term, whole, and universal life—cannot be held in SEP or SIMPLE IRAs. This restriction is outlined in IRS Publication 560 and enforced under IRC Section 408(a)(3).”
+
+📗 Publication 590-B: Distributions from Individual Retirement Arrangements (IRAs)
+🔸 Purpose
+Covers how distributions from Traditional, Roth, SEP, and SIMPLE IRAs are taxed and when they must begin.
+
+🔹 Life Insurance as a Prohibited IRA Investment
+Under IRC §408(a)(3) and (m), and clarified by Pub 590-B:
+
+IRAs may not invest in life insurance contracts.
+
+Prohibited investments include:
+
+Whole Life Insurance
+
+Term Life Insurance
+
+Universal Life
+
+Variable Life Insurance
+
+Life insurance riders
+
+This includes both owning the contract or using IRA funds to pay premiums.
+
+Exception:
+
+Small incidental group-term policies provided by employer outside the IRA structure may be allowed, if not held by the IRA.
+
+🔸 Prohibited Transaction Rules (Pub 590-B, Chapter 2)
+Using IRA funds to:
+
+Buy a life insurance policy
+
+Pay for premiums
+
+Assign IRA as policy owner or beneficiary
+...is considered a prohibited transaction (IRC §4975), causing:
+
+Immediate disqualification of the IRA
+
+Entire IRA treated as distributed
+
+Taxable income + 10% penalty (if under age 59½)
+
+RAG Output Example:
+
+“If IRA funds are used to pay for life insurance, it constitutes a prohibited transaction under IRC §4975. The IRA will lose its tax-deferred status and be considered fully distributed and taxable.”
+
+🔸 Required Minimum Distributions (RMDs) – No Exception for Insurance
+Starting at age 73, Traditional IRAs must begin RMDs.
+
+There is no provision to defer or reduce RMDs based on holding life insurance externally.
+
+Life insurance cannot be used to satisfy an RMD, nor does a death benefit substitute for a required withdrawal.
+
+🔹 Inherited IRAs and Life Insurance
+Life insurance proceeds paid to a beneficiary do not impact IRA RMD requirements.
+
+Beneficiaries of both must separately:
+
+Withdraw from inherited IRA (under 10-year rule or life expectancy)
+
+Handle death benefit from policy as non-taxable (IRC §101(a))
+
+RAG Output Example:
+
+“Even if a beneficiary receives a life insurance death benefit, it does not affect RMD obligations for an inherited IRA.”
+
+🔒 Summary of Legal Sources
+Topic	Governing Code/Source	Notes
+IRA life insurance ban	IRC §408(a)(3), §408(m)	Life insurance is an impermissible IRA investment
+Incidental benefit rule	Treas. Reg. §1.401-1(b)(1)(i)	Applies only to QRPs like 401(k), not IRAs
+Prohibited transactions	IRC §4975	Includes insurance purchases or premium payments
+Qualified plans life insurance	IRS Pub 560, Ch. 4	Allows term/whole life under % limits
+Distributions & taxation	IRS Pub 590-B	Clarifies how insurance does not offset RMDs
+
+✅ Sample RAG-Ready Q&A Based on These Publications
+Q: Can I hold a life insurance policy in my Roth IRA?
+A: No. Roth IRAs are governed by IRC §408, which prohibits life insurance contracts from being held as investments. This is outlined in IRS Pub 590-B.
+
+Q: Can my employer-sponsored 401(k) include life insurance?
+A: Yes, if structured as a qualified retirement plan—not an IRA. Life insurance is allowed as an “incidental benefit” if premiums stay within 25–50% thresholds (Treas. Reg. §1.401-1(b)(1)(i); IRS Pub 560).
+
+Q: Can I use IRA money to buy life insurance for estate planning?
+A: No. That would be a prohibited transaction under IRC §4975. You must fund life insurance premiums from non-IRA assets.
+
+Q: If I inherit an IRA and a life insurance policy, can one offset the other?
+A: No. IRAs and life insurance are separate. RMDs from an inherited IRA must be taken regardless of any death benefit received from insurance.
+

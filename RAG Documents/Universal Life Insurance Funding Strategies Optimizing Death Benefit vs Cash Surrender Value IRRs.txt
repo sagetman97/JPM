@@ -1,0 +1,280 @@
+xecutive Summary
+Before the development of universal life insurance, permanent life insurance was relatively straightforward. Policies had fixed premiums, fixed death benefits, and fixed interest rates generating consistent growth of cash surrender values over time. As a result, determining the internal rate of return (IRR) on policies was relatively easy. However, as “flexible premium” universal life products were developed in the early 1980s, policyowners gained flexibility to structure premium payments differently – introducing the possibility for individuals to place greater emphasis on either the IRR of death benefits or the IRR of cash surrender values based on their goals. However, because of the complexity of universal life insurance, many policyowners (and financial advisors) still remain unaware of this ability, and how to properly structure flexible universal life premiums to fully optimize either one of these objectives.
+
+In this guest post, Rajiv Rebello of Colva Insurance Services examines various universal life insurance premium funding strategies, illustrating that in order to fully understand the dynamics influencing both death benefit and cash surrender value IRRs, it is crucial to understand exactly how the policies work, and in particular the interrelationships between cash value, death benefits, and cost-of-insurance (COI) charges, and the ways that changes in the Net Amount At Risk (NAR) compound over time.
+
+Ultimately, the key point is to understand that strategies that maximize the long-term cash value of universal life insurance - which are all about minimizing the net amount at risk to reduce COI while managing the tax code requirements that there must always be at least "some" amount of death - and fundamentally different than the strategies to maximize the IRR of the death benefit of life insurance (which is driven by minimizing the amount of cash in the policy to maximize the net amount at risk and therefore the amount of money the insurance company must come to the table with in the event of death). Which means it is crucially important to pair the right funding strategy with the right policy structure in order to accomplish the long-term goals of a client with a particular flexible premium universal life insurance policy!
+
+Rajiv Rebello Photo
+Author: Rajiv Rebello
+Guest Contributor
+Rajiv Rebello is the founding Principal and Actuary of Colva Insurance Services — a fee-only insurance consultancy that helps structure client investments in the life insurance and life settlement space by using his actuarial expertise to minimize commissions and expenses on these products and improve investor returns for high net worth individuals and institutional investors. He’s also helped policyowners save millions in unnecessary premiums by providing actuarial evidence on policies that were unjustly overcharging clients. Prior to starting Colva, Rajiv worked in the Risk Finance Department of Chartis helping to manage and evaluate the risks of a $4 billion dollar alternative asset portfolio of life insurance policies with $18 billion in death benefit. Prior to working at Chartis, he worked in the Pricing and Mortality Departments of New York Life where he helped with the pricing, design, system illustration, and profitability analysis of New York Life’s Universal Life and Variable Universal Life products as well as conducting analysis and review of New York Life’s mortality experience. You can find him on LinkedIn and he can be reached directly at rajiv.rebello@colvaservices.com. For those interested in learning more about how to structure mortality and insurance-based products to maximize returns for clients, you can find his blog at: https://colvaservices.com/blog/.)
+
+Brief History of Permanent Life Insurance
+Prior to the introduction of universal life insurance in the early 1980s, the only permanent insurance available to policyowners was whole life insurance, which required a policyowner to pay a fixed, given amount of premium each year, in exchange for having a fixed, given death benefit, and a progression of fixed cash surrender values over time (all of which were guaranteed). The result was a policy that gave a “reasonable” rate of growth on the cash value, and a “reasonable” internal rate of return for those that held the policy until death (at least relative to interest rates at the time). Unfortunately though, by trying to give clients a return on both of these elements – the cash value, and the death benefit – the implied returns were a lot lower for either than what could be achieved by focusing individually on just one element or the other.
+
+In this context, the significance of the introduction of more “flexible premium” universal life products was that it gave policyowners the flexibility to more fully maximize either the internal rate of return on the death benefit portion of the product (DB IRR), or the investment return on the investment account in the product (cash surrender value IRR or CSV IRR) – above and beyond what traditional whole life insurance could do with either – simply by structuring the product and premiums paid into the policy differently.
+
+The caveat, however, was that because of the complexity of universal life insurance, most policyowners (and their financial advisors) were not (and still are not) fully aware on how to properly utilize the flexible universal life product to fully optimize for one of these financial goals.
+
+Accordingly, this article will take a given “sample” universal life product, and show how it may be structured differently, depending on whether the client is looking to maximize the DB IRR or the CSV IRR.
+
+But in order to understand the dynamics at play, it’s important to understand on a high level the main cost of insurance expenses that are deducted from a universal life policy in the first place, and exactly how they work.
+
+What Are Cost Of Insurance (COI) Charges?
+The “Cost Of Insurance” (COI) charge is the main expense that is deducted from a universal life policy each year to compensate (i.e., pay) the insurance company for the actual risk of needing to pay a death benefit if the insured dies. Other expenses charged by insurance companies include premium loads, monthly policy charges, and surrender charges, which will be discussed later in this article.
+
+There are two main components to this Cost of Insurance charge: the Cost of Insurance rate (COI rate), and the Net Amount at Risk (NAR).
+
+The Cost of Insurance rate accounts for the risk (i.e., probability) that the insured dies in any given year, such that the insurance company would have to pay the death benefit. Not surprisingly, the COI rate increases each year as the insured gets older and has a higher chance of dying with age.
+
+The Net Amount at Risk reflects the amount of actual dollars at risk for the insurance company if a death benefit does need to be paid. Since the insurance company already has a certain amount of cash value on hand associated with the policy (to apply towards any death benefit payout), the insurer’s true “amount at risk” is only the difference between the death benefit, and the amount of cash value that has already accumulated.
+
+Accordingly, the full charge for the cost of insurance is a combination of the COI rate for a potential amount at risk (typically quoted as a cost per $1,000 of insurance coverage), multiplied by the actual Net Amount at Risk that the insurance company is providing coverage for, as summarized by the following formula and the two following graphs:
+
+Cost of Insurance Charge for Year = (COI Rate for year) * (Net Amount at Risk for Year)
+
+How Cost-Of-Insurance (COI) Charges Increase With Age (COI Rate/1000)
+
+As you can see above, the COI rate increases as the insured gets older. Thus, while at age 75 there is only a 11 out of a 1000 chance (1.1%) of the insured dying in that year, at age 95 that chance is 63 out of 1000 (6.3%). Since the total Cost of Insurance charge is a product of the COI rate multiplied by the NAR, the only way to keep the Cost of Insurance charges low in the later years is make sure the product is well funded, such that the NAR is low.
+
+Account Value vs Death Benefit Paying Endowment Premium As Insured Ages
+
+As indicated in the graphic above, paying a level premium to endow the policy at age 100 (i.e. have the account value equal the death benefit amount at age 100) results in the account value increasing each year. As the account value increases, the difference between the death benefit and the account value – the Net Amount at Risk (NAR) – decreases in turn. Policies that maximum-fund the policy, and reduce the NAR in the later years, effectively reduce the COI charge in the later years... even though the actual COI rate is increasing in those later years.
+
+The significance of the formula for COI charges is that while the COI rate increases as the insured gets older, having a reduced NAR in the later years can offset this increase in COI rates, and actually result in lower overall COI charges than when the insured was younger! Which means how “funded” (i.e., how much cash value has been accumulated) in a universal life policy can itself have a material impact on the COI charges of the policy!
+
+Let’s look at an example to illustrate the difference in charges for a policyowner who has minimally funded their life insurance policy, versus one who has maximally funded it.
+
+Maximum-Funded Policyowner: Policyowner has paid the maximum premium into the policy each year for 30 years into a $5M death benefit policy, such that the policy now has $3M in account value. The COI Rate for the year is 2% (i.e., $20 of insurance charges per $1,000 at risk).
+
+Minimum-Funded Policyowner: Policyowner has paid the minimum premium into the policy each year into a $5M policy. As a result, the policyowner has only $10,000 in account value. The COI Rate for the year is the same 2%.
+
+COI Charge for Year for Maximum-Funded policyowner: (2%) * ($5,000,000 - $3,000,000) = $40,000
+
+COI Charge for Year for Minimum-Funded policyowner:  (2%) * ($5,000,000 -      $10,000) =  $98,000
+
+From the example above, we can clearly see the dilemma at hand. While the Minimum-Funded policyowner may have saved in premiums up to that point by minimally funding the policy, going forward that policyowner will pay drastically higher cost of insurance charges that will result in significantly higher premiums being owed on the policy going forward than their Maximum-Funded counterpart. Even though the COI rates are the same!
+
+It’s worth recognizing that this isn’t always “bad” for the Minimum-Funded policyowner, though, to the extent that these two types of policyowners typically have very different goals in the first place. The Minimum-Funded policyowner is usually trying to minimize the premiums that have to be paid into the policy in order to maximize the internal rate of return of the death benefit itself. The Maximum-Funded policyowner, in comparison, is usually trying to maximize the cash value itself (and its tax-deferred growth benefits), which paradoxically involves maximizing premiums paid into the policy in order to minimize the Cost of Insurance charges that need to be paid!
+
+In other words, the question the Minimum-Funded policyowner (who wants to maximize the IRR of the Death Benefit) asks themselves is:
+
+“What is the optimal way to pay the least possible into the insurance policy to get the death benefit (recognizing that COI charges will rise over time)?”
+
+The Maximum-Funded policyowner, on the other hand, is asking a very different question:
+
+“What is the best way to structure the policy in order to achieve maximum tax-deferred growth of the cash value itself (recognizing that as the cash value rises and reduces the NAR it will decrease the COI charges as well)?”
+
+In the sections below, we will show each of these types of policyowners strategies to accomplish their respective goals using a case study of a $5M universal life (UL) policy that has an assumed crediting rate of 3% (which is available in the marketplace today), on a 50-year-old male in great health.
+
+Maximizing The IRR Of An Insurance Policy’s Death Benefit 
+3 Premium Payment Strategies
+The flexible premium option with universal life allows the policyowner to choose how to pay premiums on the policy. The high-level concept is that this type of policy affords the policyowner a number of “funding options” (strategies in how they pay premiums into the policy, given the choice).
+
+At the most basic level, there are 3 different premium funding strategies for a flexible premium universal life policy:
+
+Pay a level premium each year to keep the policy in force to age 100. This results in the client paying more than the Cost of Insurance in the early years of the policy so that the account value of the policy accumulates over time and results in a low NAR in the later years. That way even though the Cost of Insurance rate is high in the later years, the overall charge being deducted from the policy is still low. Remember our formula, (COI rate x NAR) = Cost of Insurance charge.  By keeping the NAR low in the later years, the policyowner can still keep the Cost of Insurance charges low even if the COI rate is increasing.This was traditionally how whole life insurance policies worked, and is still typically how the policy is marketed and illustrated by life insurance agents today. Notably, though, beyond being the “traditional” approach, illustrating universal life policies in this manner is also common amongst some insurance agents because commissions are typically 100% of the first-year premium paid into the policy (which means the agent is incentivized to have the policyowner make larger payments in the early years).
+Pay a minimal premium just to keep the policy in force each year. This results in the premiums being low in the early years when the COI rate is low, but very expensive in the later years when the COI rate is higher. While this results in the risk of the premiums in the later years being very high (as COI rates increase and the NAR is still large), the policyowner may be trying to optimize the time value of money, and the fact that the insured has a lower chance of living to the later years in the first place (i.e., if the insured has already passed away by the time the COI rates rise, the policyowner simply paid less into the policy for the same death benefit, maximizing their Death Benefit IRR).
+Pay a hybrid of the two above. This involves paying a level amount of premium to a point in the future, and then a minimum premium (just to maintain the policy) after that. The concept is to determine a risk/reward scenario that is optimal over time, given the particular risk profile and goals of the client.
+Premiums Paid In Year As Insured Ages Using Various Premium Funding Strategies
+
+From the graph above, we can immediately see that the minimum premium strategy is significantly cheaper in the early years, but escalates dramatically in the later years. In fact, the cumulative premiums to age 100 for the Level Pay to 100 option (dark blue line) is only $2.9M, as compared to $6.1M for the minimum funding strategy (green line)!
+
+An interesting point to note with the minimum premium strategy is that the minimum premium is constant at $28,200 for the first 8 years, and then drops to 0 for the next 6 years.  The reason for this initial drop is that the carrier mandates that the policyowner pay a certain level of premium into the policy for the first few years (we’ll talk about why they do this later). Since the carrier has essentially required that the policyowner overpay in the early years, and the universal life is a flexible premium policy, the policyowner can elect to skip premiums over the next few years to account for overpayment in the first few years.
+
+The question for the policyowner, though, is how to evaluate and compare these strategies (and how to customize the “hybrid” approach)?  When is it better for the policyowner to pay less premiums now, at the risk paying very high premiums later? When is it better for the policyowner to take the safe strategy and just pay a level premium every year? How can a customized hybrid strategy balance between the two?
+
+In the next section, we’ll talk about how to quantitatively value these various premium strategies, and account for the risk and reward of each.
+
+Actuarial Present Value of Premiums
+Most financial advisors are familiar with the concept of Internal Rate of Return (IRR), which evaluates a stream of cash flows over time and determines the implied rate of return that would have to be earned to equalize the cash inflows and outflows over time (i.e., the return that would have to be earned on deposits over time to support the payouts at the end).
+
+In this context, the chart below shows the internal rates of return for the various funding strategies, based on their premium commitments over time, and what IRR would be produced given the death benefit available at each potential age of death. Not surprisingly, the IRR on a life insurance death benefit is very favorable for those who die within 15-25 years (i.e., before life expectancy), but trail off in the later years for those who continue to pay premiums but haven’t yet received a death benefit.
+
+Death Benefit IRR Of Premium Strategies Assuming Death At End Of Year
+
+The graphic above shows the IRR for each premium funding strategy, assuming the insured dies at each respective age. While the Hybrid Pay and Minimum Pay Options essentially overlap, the Level Pay Prem notably lags behind at each age (until the very end, when it crosses over at age 94). Note that while the Level Pay premium does eventually have a higher IRR, there is only a 24% chance that the insured lives to age 94 or longer. By taking this tail risk, the policy owner can achieve much higher expected IRR by choosing the hybrid pay or minimum pay options.
+
+However, the caveat of the comparison above is that not all the potential IRRs have the same probability of occurring. The very high IRRs are improbable, because the odds of death well before life expectancy are not very high. Nor are the IRRs in the later years very likely, because at that point the cumulative odds of death would be very high (i.e., most insureds will not live that long in the first place).
+
+Accordingly, to properly compare strategies, it’s not enough to just compare the IRRs of the strategies. Instead, we need to also account for the fact that the insured only has to pay the future life insurance premium if he or she is still alive. Which means we need to determine what the chance is of the insured surviving to a given point in time in the future (using actuarial mortality tables to determine what the chance of survival is for an insured of a similar age and health status for each year), and discount the value of both the potential cash flows (both premiums going out, and the death benefit coming in), in a Net Present Value computation for each strategy.
+
+In our case example, we are assuming that the insured is a 50-year-old man in great health. According to actuarial mortality tables, such an insured has a 37-year life expectancy, and a 40% chance of surviving to age 90 (40 years).  By looking at the premium strategy graph previously discussed, we can see that if the insured chooses to pay the minimum premium each year, then a premium of $250,000 will be due if the insured is still alive at age 90. Therefore, the expected value of that $250,000 payment at age 90 is the amount of the payment multiplied by the chance the insured is still alive at that point which equals $100,000 ($100,000 = $250,000*0.40).
+
+The next step is to discount that expected $100,000 payment at age 90 (40 years from issue of the policy) by a discount factor to reflect the time value of money. When choosing a discount rate, it’s important to choose a discount rate that reflects not necessarily the returns of the insurance policy itself per se, but the opportunity cost of the investment (i.e., what the investor would have done with the dollars if they had not been paid into the insurance policy in the first place). In this case, we’re going to use a discount rate of 5% to reflect the underlying investment risk (as even for a conservative investor, it’s important to consider not just current interest rates, but also some tiny level of default risk, along with an illiquidity premium associated with using life insurance as an “investment”).
+
+In the table below, we can see the actuarial present value of various premium payments owed in the future if the policyowner chooses the minimum premium strategy.
+
+Actuarial Present Value of Premium Payments Under A Minimum Premium Strategy
+
+The above table shows 3 different premium payments (in years 1, 21, and 41) for the minimum payment strategy. Even though the scheduled premiums get larger as the insured ages, the actuarial present value of the premiums at a 5% discount rate on these ever-larger premiums gets smaller, due to the much-lower chance of surviving to that point, on top of the time value of money discount factor.
+
+What should be readily apparent from the above table is how small the actuarial present value of the later premium payments are. Even though these later premiums are quite large, when the probability of survival and the time value of money discount is taken into consideration, the actuarial present value of these premium payments in terms of today’s money is actually smaller than the first-year premium payment owed on the policy.
+
+For each of the 3 premium strategies (level pay to 100, minimum pay, and hybrid) we can use this actuarial present value analysis to evaluate every premium payment in each strategy. And by adding up the actuarial present value of all the premium payments in a given strategy, we can compare the total actuarial present value of all premiums in one strategy to that of another.
+
+We can also use survival probabilities to determine an expected IRR for the death for each of our premium strategies. If the insured is alive during a policy year then the insured will have to pay the scheduled prem (an expense). If the insured dies in a policy year the policyowner will receive the death benefit (income). Thus, by using each year’s survival and death probabilities, and the corresponding premium and death benefit schedule, we can determine expected cash flows for the year and do an IRR calculation.
+
+The table below summarizes the actuarial present value, and the expected DB IRR of each strategy which accounts for the probability of death at each age.
+
+Actuarial Present Value And DB IRR For Various Strategies Accounting For Probability Of Death At Each Age
+
+The above table shows the actuarial present value and expected DB IRR for each of our 3 premium strategies. As might be expected, the level pay to 100 premium strategy has the highest actuarial present value of premiums (i.e., is the most expensive), and as a result has the lowest expected DB IRR. The minimum premium strategy is the least expensive, and correspondingly has the highest DB IRR. A policyowner who chooses the minimum premium strategy can expect to save over $360,000 in today’s dollars on premiums, versus a policyowner who chooses the level-premium-to-age-100 strategy that is shown to him or her by the insurance agent. And notably, given the tax-free nature of life insurance under IRC Section 101, these are effectively after-tax IRRs for the death benefit as well!
+
+'Minimum premium' universal life strategies may maximize death benefit IRRs!
+Click To Tweet
+
+Maximizing the IRR Of The Cash Surrender Value
+While maximizing the IRR of the insurance policy’s death benefit requires the policyowner to minimize the premiums paid into the policy for a given death benefit amount, maximizing the internal rate of return of the Cash Surrender Value (CSV IRR) requires the policyowner to maximize the premiums paid into the policy while minimizing the death benefit, so that the policyowner can minimize the total COI charges (which in turn maximizes the tax-deferred growth in the cash value).
+
+In the early days of permanent cash value life insurance, this strategy was impossible, because all the insurance policies were whole life, where the premiums and associated future cash value growth were all guaranteed. In other words, it wasn’t flexible enough to proactively change the funding strategy to maximize the internal cash value growth of the policy.
+
+However, with the rise of universal life insurance – and its flexible premium structure – in the early 1980s, it didn’t take long for clever financial advisors and life insurance agents  to realize that they could dump in large amounts of premium into a life insurance policy and use the tax-deferred growth build-up of life insurance cash values as a way for their clients to accumulate assets while not paying taxes on them (far beyond what whole life policies had ever made possible). In order to limit this, Congress enacted legislation—the Tax Equity and Fiscal Responsibility Act of 1982 (TEFRA) and the Deficit Reduction Act of 1984 (DEFRA)—that capped the amount of premiums that policyowners could pay into policies (to avoid unduly shrinking the Net Amount at Risk in a manner that would have otherwise virtually eliminated paying any COI charges).
+
+Thus in today’s world, in order for the policy to qualify as life insurance in the first place—necessary to make the death benefit on the policy tax-free under IRC Section 101 and allowing tax-deferred buildup on the cash value—the policy must satisfy one of the following two tests:
+
+Guideline Premium Test (GPT): For a given death benefit, this test requires that the death benefit at all times be a certain multiple above whatever the then-current accumulated cash value may be (known as GPT corridor factors). The corridor requirement assures that even if the policyowner pays the maximum premium into the policy, in an effort to close the gap between the cash value and the death benefit to minimize the NAR, that the death benefit itself will eventually rise as well, ensuring that the NAR stays at a certain level… effectively ensuring that the insurance policy remains an insurance policy (with some death benefit), which the indirect effect that the policyowner can only go so far to minimize the COI charges owed.In addition, the GPT limits the premiums that can be paid into a policy in the first place. The premium limit is based on an actuarial calculation that solves for the maximum premium the life insurance company would need the policyowner to pay in order for the life insurance company to fund the death benefit obligation assuming the life insurance company assessed the highest expenses possible (known as guaranteed charges) – as by definition, if the premiums paid in are worse than even this “worst-case” scenario on cost of insurance charges, then the policy is literally being overfunded beyond what any life insurance policy would need (and thus isn’t permitted).
+Cash Value Accumulation Test (CVAT): Unlike the GPT, this test does not limit the premium payments that can be paid into the policy. It only requires that the death benefit at all times be a certain multiple above the cash value (known as CVAT corridor factors). As you might have guessed, these CVAT corridor factors are significantly higher than the corresponding GPT factors, in order to make up for the lack of a premium limitation requirement.
+The option of whether the policy will be tested in accordance with the GPT or CVAT rules must be made at issue, and cannot be changed after the fact. So if our 50-year-old policyowner is looking to maximize the CSV IRR, which one should he or she choose?
+
+On the surface, it appears that the GPT would be the better option, because the corridor factors are significantly lower than the CVAT corridor factors, making it easier under the GPT to limit the NAR, which in turn limits the amount of COI charges, and allows for greater tax-deferred growth.
+
+Continuing our ongoing case study example with a $5M million policy on a 50-year-old in great health, the GPT maximum premium limit is $110k/year. What happens to the death benefit amounts if we pay this same amount of premium into a GPT policy, and into a CVAT policy on the same insured?
+
+CPT vs CVAT Death Benefit As Insured Ages With Same Premium Payment
+
+The GPT the maximum premium that can be paid into the policy is $110k/year. If the policyowner pays that amount of premium into a GPT policy, then at age 82 the GPT corridor starts to bump the death benefit amount up.
+
+Since the CVAT doesn’t have a premium limit, it has significantly higher corridor factors for a given age. As a result, paying the same $110k/year premium into a CVAT policy causes the death benefit to start increasing at age 75.
+
+Due to the higher CVAT corridor factors, paying the same premium into both a GPT and a CVAT policy causes the death benefit to increase at a much earlier age for the CVAT policy. This of course increases the Net Amount at Risk, which when combined with the higher cost of insurance rates in the later years, results in the CVAT policy paying significantly higher cost of insurance charges than the corresponding GPT policy with the same premium amount paid into the policy. Accordingly, the cash surrender value of the GPT policy quickly outpaces that of the CVAT policy in the later years.
+
+GPT vs CVAT CSV At End Of Year Paying GPT Premium
+
+Since the CVAT Corridor Factors increase the death benefit to a larger extent than the GPT Corridor Factors, the higher resultant Net Amount at Risk associated with the CVAT increases the COI Charges for the CVAT policy, which drags down the CVAT cash surrender values in the later years when compared to the GPT cash surrender values. By age 100, the GPT cash surrender value is more than $2M higher than the CVAT cash surrender value.
+
+Not surprisingly, then, the lower cash surrender values of the CVAT policy in the later years inevitably results in lower CSV IRRS of the CVAT policy when compared to the corresponding GPT policy.
+
+GPT vs CVAT IRRs As Insured Ages With Same Premium Payment
+
+Since the CVAT bumps up the death benefit more than the GPT in the later years, the NAR and COI charges increase. This causes the CVAT IRRs to lag behind the GPT IRRs in the later years. Note that for the first 25 years the IRRs are the same since the corridor factors haven’t come into play for either the GPT or the CVAT.
+
+The graphs above show that, all else being equal, paying the same amount of premium into the same face amount policy for a GPT policy results in higher long-term CSV IRRs than a corresponding CVAT policy (the IRRs in the first 25 years are the same since the corridor factors haven’t come into play for either the GPT or the CVAT). And remember, the current crediting rate on this policy is 3% – which means the IRR of the CSV can never be higher than 3%. Accordingly, the goal is to structure the policy to get to as close to a 3% IRR as possible. (For policies with higher crediting rates and higher risk-levels you would employ the same methods just with a higher target IRR.)
+
+However, this isn’t the full story.
+
+You might have noticed from the graph above that before age 70, the return for both the max funded GPT and the CVAT is less than 1% (i.e., literally off the chart).  This means for that for the first 20 years, the client is earning extremely low returns (including negative returns for the first 14 years) because of the high initial policy expenses charged by the life insurance company in the early years of the policy (which drag down those cash value returns).
+
+What if there was a way that the policyowner could avoid at least some of these early year expenses? Remember that the CVAT allows for the policyowner to “dump” (i.e., contribute in large dollar amounts) as much premium into a policy as they desire, without any limit. What this means is that the policyowner can make a minimum premium payment when the initial policy expenses are high (i.e., in the early years), and then make a large payment after the high expense period has ended. This would significantly increase the IRRs on the investment.
+
+But before we look at how to do this, let’s first get a better understanding of why the early year expenses even on a max funded policy are so high.
+
+High Insurance Agent Commissions Necessitate High Early Year Expenses
+While max funding a GPT policy increases the long-term IRRs over funding a CVAT policy with the same premium, it does nothing to help the early year CSV IRRs, which are atrocious.
+
+CPT CSV IRR By Year Of Policy Ownership
+
+Even with a max-funded policy, the early year CSV returns are extremely poor. The universal life insurance policy as an investment doesn’t even break even until year 15!
+
+So why are policy expenses so much higher in the early years?
+
+The answer is agent commissions.
+
+Remember that the in the first year, the life insurance company gives the agent who sold the policy approximately 100% of the first-year premium paid into the policy. This means from the get-go, the life insurance company is operating at a loss. In order to recoup these expenses, they typically charge high policy expenses in the early years, through a combination of the following methods:
+
+Premium Load: This is the percentage of the premium that is deducted as an expense every time a policyowner pays a premium into the policy. It can be anywhere from 2%-15% of each premium dollar going into the policy. Typically these are higher in the early years, and decrease at a certain point in the later years.
+
+Monthly Policy Fee:  This is a regular monthly fee that the life insurance company deducts from the policy’s cash value every month. Typically these are also higher in the early years, and decrease at a certain point in the later years, and can be a very high percentage of the still-relatively-small cash value in the early years.
+
+Surrender Charge: This is a back-end fee that is assessed if the policyowner cancels the policy. It is extremely high in the early years, but decreases over time. Most policies charge the policyowner a surrender charge if he or she cancels the policy within the first 15-20 years, to recoup the remainder of the agent’s commission that hasn’t already been recovered through the higher premium loads and monthly policy fees.
+
+The pie chart below shows how these cumulative costs impact the cash value of the life insurance policy in the early years of a GPT policy with a $110k/year maximum-funding premium.
+
+Expenses vs End Of Year Value After 2 Years Of GPT Policy
+
+The maximum premium you can pay into a GPT policy for this $5M policy is $110k/year. After paying $220k in premiums over the first 2 years, 21% of the value is eaten up by policy expenses (premium load, policy charges, and cost of insurance) and another 68% is eaten up by surrender charges, leaving only 11% of the premiums paid available as end-of-year cash surrender value.
+
+Note that the Total “Net” Premium Load Expense is the Total Premium Load Expenses, minus the accumulated interest gains that have been made during the 2 years.
+
+As the chart above shows, the problem with the policy in the early years is that a large amount of the premium paid into the policy is eaten up by policy expenses, and/or is held for the surrender charge that may be assessed, even though the actual life insurance charges—the cost of insurance—is just a mere 2% of the cash surrender value!
+
+In other words, the actual life insurance expenses of this life insurance policy are extremely cheap. It’s all the other expenses that are layered into the product, particularly to account for the high commissions being paid to the agent, that make the product extremely expensive and illiquid in the early years, and result in the policyowner getting very little in value until the IRRs of the cash value finally turn positive later.
+
+Financial advisors should note that a breakdown of all policy expenses can often be requested with an illustration. However, this is an additional “policy expense report” must be specifically requested, and the agent is not required to show it (and may avoid trying to show it so that the policyowner doesn’t see the high early year expenses being deducted from it).
+
+A ‘policy expense report’ may reveal policyowner expenses that client's didn't know were there!
+Click To Tweet
+
+Using the CVAT as an Embedded Option to Dump-In Premiums After the High Early Expense Period
+As we saw in the previous section, the appeal of the GPT policy is that it allows for a lower NAR over time by having a narrower corridor, but is “stuck” funding more premiums in the early years when the initial overhead expenses are higher (which still drags down CSV returns over time).
+
+In this context, CVAT policies can be more appealing, because they do not limit the premiums that are paid into the policy, now or in the future. CVAT simply forces the death benefit to potentially increase more rapidly (by having a larger corridor value). Which means it’s possible with a CVAT policy to buy a smaller face amount policy initially, and then later dump in a large amount of premium after the high expense early year period is over (a strategy that many advisors and especially agents neglect, as lower upfront premium payments with such a strategy could dramatically reduce the commissions paid to the agent on an otherwise equivalent death benefit policy).
+
+As we’ll soon see, this strategy to leverage a CVAT policy can bump up the implied return on the cash values dramatically. The CVAT policy also comes with the added advantage that the policyowner is essentially buying a policy when he or she is young and in great health, and locking in that underwriting class, so that years later he or she can pay in very large amounts of “premium contributions” into the policy at low Cost of Insurance rates for that underwriting class… even if the health of the insured has declined (which makes it an even better “deal”!).
+
+In the graph below, the policyowner purchases a tiny $100k death benefit policy, and pays only $550 in premium each year to keep it in force. At the start of year 21, the policyowner then dumps in a $3M premium payment.
+
+CVAT CSV and DB Values With Large Dump-In
+
+Buying a small face amount CVAT policy allows a large pay-in to be made in the later years when policy expenses are lower. This large lump sum contribution causes the death benefit to increase because of the CVAT corridor factors. This bumps up the NAR initially and increases the COI charges assessed to the policy. However, the large contribution also allows interest to accumulate in the policy. Over time, the interest in the policy accumulates faster than the corridor factors are lifting up the DB, which causes the NAR over time to decrease, in turn reducing the COI charges assessed on the policy and maximizing the growth of the cash value!
+
+While doing a large lump sum premium contribution in year 21 initially causes both the DB and CSV to increase (and is permissible even without additional underwriting, because the policyowner is not increasing the face amount, per se, but simply allowing the premium payments to cause the death benefit to increase indirectly), as the insured gets older the cash surrender value grows at a larger rate than the DB because of two reasons:
+
+The CVAT corridor factors decrease as the insured gets older. The narrowing CVAT corridor permits the death benefit to get closer to the cash value over time, which in turn permits a reduction in the NAR.
+The large dump-in causes interest to accumulate in the policy faster than the COI charges are growing. Even though the COI rate is increasing as the insured gets older, the actual COI charge is not growing that fast (because of the narrowing NAR). In fact, the interest the policy is accruing each year is significantly larger than the COI charges allowing the CSV to grow over time, even in the later years when the COI rates are otherwise very high.
+As an illustrative example, let’s look at how much of the year-21 $3M premium payment is eaten up by expenses, and compare that to our first 2 years of paying premiums into a max-funded GPT policy. Remember that before the $3M premium payment, the policyowner paid only $550/year to keep the $100k CVAT policy in force (which to be fair, we need to include as an expense of the strategy as well). We’ll call this the “CVAT Dump-in Premium Option Cost” (i.e., over the first 20 years, the policyowner is paying a price for the option to dump-in a large amount of premium later). The cost of this option is just the accumulated cost of these annual $550 premium payments for 20 years, at the previously assigned accumulation rate of 5%, minus whatever CSV is left in the $100k policy at the end of 20 years before the dump-in is made. This amount ends up being $14,947. So the total premium cost for this policy is the $3M premium payment, plus the $14,947 CVAT Dump-In Premium Option Cost.
+
+Expenses vs End Of Year Cash Surrender Value After CVAT Dump-In
+
+By dumping a $3M premium payment in the later years, the policyowner completely avoids the high policy owner expenses and surrender charges that drag down returns in the early years of a life insurance policy. As a result, at the end of the year the cash surrender value is 96% of the total premium cost paid into the policy ($3M premium plus $15k CVAT Dump-In Premium Option Cost).
+
+From the pie chart above, we can clearly see that all the policy expenses are now a small fraction of the total premium cost for the policy. As a result, two years after the dump-in, 96% of the policyowner’s total premium cost is available as cash surrender value!
+
+This is a drastic contrast to the max-funded GPT policy, where after 2 years 89% of the total premium cost paid into the policy was eaten up by expenses! Even though the policyowner is 70 years old at the time of the large dump-in, the Cost of Insurance charges are still only 2% of the total premium cost—which is the same percentage for the 50-year-old with the GPT policy – thanks to the fact that the narrower corridor (due to the higher age) permits a much smaller NAR.
+
+Comparing Max-Funded GPT CSV IRRs to CVAT Dump-In CSV IRRs
+With the GPT max-funded strategy, the policyowner pays the maximum annual premium of $110k/year on a $5M policy starting from age 50. However, with the CVAT dump-in strategy, the policyowner pays the minimum annual premium ($550/year) into a $100k policy, and then does a large dump-in at the start of the 21st year.
+
+How do we compare the CSV IRRs from the GPT max-funded strategy to the CVAT dump-in strategy?
+
+The best way to do this is to treat the first 20 years of payments into the CVAT dump-in strategy as an option price for the right to dump-in a large premium later. As we mentioned in the previous section, at the end of the 20th year, the accumulated amount of paying 20 years’ worth of $550 annual premium amounts to an accumulated cost of $14,947 in 20 years (after adjusting for terminal cash surrender value, and the time value of money).
+
+We can then treat this accumulated cost, and $3M large dump-in premium, as a collective cost into the first year of the policy.  That way we can compare year-by-year CSV IRRs for each strategy to each other. The only difference is that for the GPT strategy, year 1 is on a 50-year-old, while for the CVAT dump-in strategy year 1 is on a then-70-year-old.
+
+
+
+Using the CVAT dump-in premium strategy drastically increases the early year CSV returns over the GPT strategy. While the GPT strategy doesn’t break even until year 15, the CVAT dump-in strategy does so in Year 3.
+
+By using the CVAT dump-in strategy, the policyowner dramatically increases the early year CSV IRRs – a lead that holds throughout the subsequent life of the policy as well. The boost in early year CSV IRRs is of extreme importance, given that 50% of all purchasers of permanent life insurance policies still cancel their policies within the first 10 years. As shown earlier, canceling a life insurance policy early can result in the loss of hundreds of thousands of dollars in high early year expenses that the policyowner cannot recoup. The embedded option of the CVAT strategy to lock-in an underwriting class early, and dump-in large premiums later, allows the policyowner more liquidity and better early and long-term CSV returns.
+
+'CVAT dump-in' strategies may provide better short- and long-term cash value returns!
+Click To Tweet
+
+CVAT Dump-In Considerations
+While the CVAT Dump-In strategy allows numerous advantages, it’s important to be aware of the following issues:
+
+1. MECing the policy: Doing a large dump-in in the later years of the policy is the best way to maximize the CSV IRR. However, if the dump-in is “too large”, it runs the risk of making the policy a Modified Endowment Contract (MEC). MECing a policy happens if the policyowner pays “too much” into a life insurance policy, and causes any loans or partial withdrawals from the policy to be taxable (unlike the standard treatment where withdrawals come from principal first and loans are non-taxable), while also subjecting withdrawals to a 10% early withdrawal penalty prior to age 59 ½ (similar to annuities and IRAs). Of course, for those who hold the policy until death, the death benefit is still tax-free, and those who would have surrendered the cash value in full would pay taxes on the same gain (as ordinary income) at that time anyway. However, those who do plan to take ongoing partial withdrawals in later years (or especially before age 59 ½), or take loans, should be cautious to “only” dump in enough money to not make the policy a MEC. The insurance company can provide an illustration at the time of how much can be contributed without triggering MEC status (in general, it’s known as a “maximum level pay” illustration or a “maximum dump-in” illustration.
+
+2. Lack of DB coverage in first 20 years: Readers might point out that purchasing a $100k CVAT policy at age 50 will leave the policyowner underinsured for the first 20 years. While this is correct, the goal here was to show how to exclusively maximize the CSV IRR of a flexible premium universal life insurance product; in other words, it’s presumed that the goal is to maximize cash value, and that the life insurance is not for death benefit purposes (as the optimal funding strategy for maximizing the death benefit is entirely different!). Although notably, even if the policyowner were to buy a 20 year $4.9M term product to make up for the difference in death benefit during that time, the CSV IRRs would still be higher than using the GPT max fund strategy.
+
+CPT CSV IRR vs CVAT Dump-In CSV IRR By Year Of Policy Ownership
+
+Even if we are not trying to explicitly maximize the CSV IRR and want to account for 20 years’ worth of $4.9M term expenses in addition to the $100k CVAT policy, the CVAT dump-in strategy (with 20-year term expenses) still outperforms the GPT strategy.
+
+3. Increasing the return through higher yielding products: Perhaps the most obvious critique is that the best way to increase the CSV IRR is to invest in a permanent life insurance product that is crediting a lot more than 3% in the first place. Many people would point to variable universal life, or indexed universal life products, that have underlying investments in various equity (or equity-“like”) funds, that potentially allow for much higher equity crediting rates than the 3% product shown here that is almost exclusively invested in Treasury bonds. While that is correct, the principles of how to increase the CSV IRR would apply to those products as well.
+
+It’s also important to note that investing in those higher yielding equity products within a life insurance product has adverse tax consequences as opposed to doing so outside of it. Namely, that when you invest in equity products outside of a life insurance product, those equity gains are potentially subject to a maximum long-term capital gains tax rate of “just” 20% (plus the 3.8% Medicare surtax) for high net worth individuals. However, when you invest in those same equity products within a life insurance product, those returns are now subject to ordinary income rates which can be as high as 37% for federal tax. (State income taxes may apply as well, but would typically apply equally to both.)
+
+4. Private Placement Life Insurance: Perhaps the best method for high net worth investors looking to minimize the drag that commissions and expenses have on their returns is the utilization of private placement life insurance. Private placement life insurance essentially offers a life insurance wrapper around the tax-deferred investment vehicle of the client’s choice. The client gets the advantage of investing in potentially-much-higher-yielding assets of their choosing, while benefitting from the tax-deferred growth inside an insurance product that is largely stripped of the high commissions and expenses that mark traditional life insurance products.
+
+Fee-only RIAs that have high net-worth clients that can afford to dump-in $3M into a tax-deferred vehicle would be wise to make important note of this. The investment advisor can create and implement an investment strategy that they would otherwise employ outside of a life insurance product, while utilizing the private placement life insurance product itself as a vehicle to gain tax-deferred growth for the client. While the fee-only RIA would take no commissions from the transaction, they would be able to get paid for managing the cash surrender value of the product (technically as a sub-advisor to the insurance company itself) and earn their normal AUM fee from the client. The better their investment strategy performs, the more tax-deferred growth their client receives, and the higher the fee the advisor earns!
+
+IRR and NPV Conclusions and Takeaways
+The bottom line is that while the traditional life insurance illustration typically shows steady premiums paid to age 100, not only is it not necessary to do so with a flexible premium universal life policy, it’s often not beneficial to do so. Both because the IRR of the death benefit can be better maximized with a minimum funding strategy from the start, and because even the IRR of the cash value with a “maximum funding” strategy is often better by starting with a minimum funding solution, using a CVAT-style policy, and then maximizing the contributions later.
+
+And unfortunately, life insurance agents are often not incentivized to illustrate such strategies, given that agents often get paid 100% of the first-year “target” premium paid into the policy. So if the agent has the choice of showing a level premium that pays $58,000 in the first year, versus a minimum premium strategy that only pays $550 in the first year and dumps-in a large amount later, which illustration does the agent show the potential client and sell him or her on?
+
+Ultimately, this is why it’s important to have an objective financial advisor – with both the appropriate life insurance expertise, and a fiduciary responsibility to the client – to help structure such a large financial investment as permanent life insurance in a way that meets the client’s goals and risk profile (and aids in the monitoring over time, as a change in health of the insured after the policy can further alter the optimal premium funding strategy to maximizes the future value of the cash value  or death benefit as appropriate at that time).
+
+At a minimum, though, it’s important for any advisor to understand the mechanics of how best to maximize a life insurance policy, and why the funding strategies to maximize cash value accumulation are fundamentally different than maximizing the internal rate of return on the death benefit itself. Which means it’s especially important to properly pair the right funding strategy and policy structure with the actual long-term goals of the client!

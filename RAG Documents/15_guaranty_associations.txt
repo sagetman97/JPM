@@ -1,0 +1,36 @@
+
+State Life‑Insurance Guaranty Associations
+=======================================
+
+Purpose and Scope
+-----------------
+
+When an insurance company becomes insolvent, policyholders risk losing promised benefits.  To protect consumers, every U.S. state (along with the District of Columbia and Puerto Rico) has a **life and health insurance guaranty association**.  These associations provide a safety net by **paying claims on behalf of insolvent insurers**, within statutory limitshttps://www.acli.com/about-the-industry/guaranty-associations#:~:text=,insurance%20guaranty%20association.  Insurance companies are required by law to be members of the guaranty association in each state where they do businesshttps://www.acli.com/about-the-industry/guaranty-associations#:~:text=Insurance%20guaranty%20associations%20provide%20protection,Rico%20have%20insurance%20guaranty%20associations.
+
+Coverage
+--------
+
+Life‑and‑health guaranty associations typically cover **individual and group life insurance policies, annuities, long‑term‑care insurance and disability income insurance**https://www.acli.com/about-the-industry/guaranty-associations#:~:text=,cover%20all%20types%20of%20insurance.  Each state sets statutory limits on the amount of coverage provided, following guidelines from the NAIC’s model law.  Most states guarantee at leasthttps://www.acli.com/about-the-industry/guaranty-associations#:~:text=The%20amount%20of%20coverage%20provided,Insurance%20Guaranty%20Association%20Model%20Law:
+
+- **$300,000 in life‑insurance death benefits**;
+- **$100,000 in net cash‑surrender or withdrawal value** for life‑insurance policies;
+- **$250,000 in present value of annuity benefits** (including structured‑settlement annuities);
+- **$300,000 in long‑term‑care insurance or disability income benefits**;
+- An overall cap of **$300,000 in total benefits** per insured for one or more policies with the insolvent insurerhttps://www.acli.com/about-the-industry/guaranty-associations#:~:text=The%20amount%20of%20coverage%20provided,Insurance%20Guaranty%20Association%20Model%20Law.
+
+How Guaranty Associations Work
+------------------------------
+
+If an insurer cannot pay claims, the guaranty association obtains funds by **assessing member insurers** that sell the same type of coverage.  These assessments, together with the insolvent company’s remaining assets, are used to pay policyholder claims or continue coveragehttps://www.acli.com/about-the-industry/guaranty-associations#:~:text=If%20an%20insurance%20company%20has,transfer%20policies%20to%20healthy%20insurers.  In many states, member insurers can offset the assessments against state premium taxes over timehttps://www.acli.com/about-the-industry/guaranty-associations#:~:text=,assessments%20on%20companies%20determined.
+
+Policies may be **transferred to healthy insurers** or continued under the association’s administration to ensure that policyholders maintain coveragehttps://www.acli.com/about-the-industry/guaranty-associations#:~:text=If%20an%20insurance%20company%20has,transfer%20policies%20to%20healthy%20insurers.  Unallocated group annuity contracts purchased by retirement plans often have higher coverage limits (commonly $5 million per contract)https://www.acli.com/about-the-industry/guaranty-associations#:~:text=,contracts%20purchased%20by%20retirement%20plans.
+
+Governance and Coordination
+---------------------------
+
+Each state guaranty association is governed by a **board of directors** and overseen by the **state insurance regulator**https://www.acli.com/about-the-industry/guaranty-associations#:~:text=,guaranty%20association.  All associations are members of the **National Organization of Life and Health Insurance Guaranty Associations (NOLHGA)**, which coordinates activities when an insolvent insurer operates in multiple stateshttps://www.acli.com/about-the-industry/guaranty-associations#:~:text=,does%20business%20in%20multiple%20states.  Consumers with questions about coverage or exclusions should contact their state insurance department or guaranty associationhttps://www.acli.com/about-the-industry/guaranty-associations#:~:text=Contact%20the%20state%20insurance%20department%C2%A0or,and%20exclusions%C2%A0in%20a%20particular%20state.
+
+Implications for Policyholders and Advisors
+------------------------------------------
+
+Guaranty associations provide an important consumer protection, but coverage is **limited**.  Advisors should help clients assess an insurer’s financial strength and diversify across companies if purchasing large policies.  Understanding state guaranty limits can also inform discussions about risk transfer and the importance of choosing well‑capitalized insurers.

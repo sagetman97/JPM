@@ -1,0 +1,40 @@
+
+Life‑Expectancy and Mortality Data Sources
+=========================================
+
+Accurate mortality and life‑expectancy data are essential for pricing life‑insurance policies and performing financial planning calculations.  Several publicly available datasets provide insights into U.S. mortality trends and life‑expectancy distributions.
+
+Social Security Administration (SSA) Period Life Table
+----------------------------------------------------
+
+The SSA publishes **period life tables** based on recent mortality experience.  The **2022 period life table**, used in the 2025 Trustees Report, lists death probabilities, number of lives and remaining life expectancy for males and females at each exact agehttps://www.ssa.gov/oact/STATS/table4c6.html#:~:text=a%20relatively%20short%20period%20of,his%20or%20her%20remaining%20life.  For example:
+
+- At age **0**, the death probability is about **0.006064** for males and **0.005119** for females, with life expectancies of **74.74** and **80.18** years respectivelyhttps://www.ssa.gov/oact/STATS/table4c6.html#:~:text=Period%20Life%20Table%2C%202022%2C%20as,in%20the%202025%20Trustees%20Report.
+- By age **30**, the male death probability falls to roughly **0.002332**, with a remaining life expectancy of about **46.51** years; the female death probability is **0.000988**, with an expectancy of **51.25** yearshttps://www.ssa.gov/oact/STATS/table4c6.html#:~:text=20%200,30.
+
+These tables allow actuaries and advisors to estimate the probability of survival and calculate the expected present value of life‑insurance benefits or annuity payments.
+
+CDC/NCHS Mortality and Life‑Expectancy Dataset
+-----------------------------------------------
+
+The **National Center for Health Statistics (NCHS)** provides a dataset of U.S. mortality trends since **1900**.  This dataset highlights **differences in age‑adjusted death rates and life expectancy by race and sex**, using the 2000 U.S. standard population for age adjustmenthttps://catalog.data.gov/dataset/nchs-death-rates-and-life-expectancy-at-birth#:~:text=This%20dataset%20of%20U,birth%20by%20race%20and%20sex.  Key features include:
+
+- **Historical coverage:** Data extend back to 1900, with life‑expectancy figures available up to 2017https://catalog.data.gov/dataset/nchs-death-rates-and-life-expectancy-at-birth#:~:text=This%20dataset%20of%20U,birth%20by%20race%20and%20sex.
+- **Demographic breakdowns:** Death rates and life expectancies are provided separately for different races and sexes.  The dataset notes that consistent data for the Black population are only available from 1968 onwardhttps://catalog.data.gov/dataset/nchs-death-rates-and-life-expectancy-at-birth#:~:text=Life%20expectancy%20data%20are%20available,death%20rates%20is%20available%20at.
+- **Sources:** The dataset aggregates mortality data from historical vital‑statistics reports and the CDC’s WONDER databasehttps://catalog.data.gov/dataset/nchs-death-rates-and-life-expectancy-at-birth#:~:text=SOURCES.
+
+State‑Level Life Expectancy
+---------------------------
+
+The **U.S. State Life Expectancy by Sex, 2021** dataset supplies **life expectancy at birth estimates** for each of the 50 states and the District of Columbia.  It provides separate figures for the **total, male and female populations** in 2021https://catalog.data.gov/dataset/u-s-state-life-expectancy-by-sex-2021#:~:text=Metadata%20Updated%3A%20April%2023%2C%202025.  Such state‑level data are useful for advisors who want to tailor insurance recommendations based on regional longevity differences.
+
+Applications in Financial Planning
+---------------------------------
+
+These datasets support a variety of insurance and retirement‑planning tasks:
+
+- **Needs analysis:** By combining life‑expectancy data with income replacement goals, advisors can estimate how long survivors will rely on insurance benefits and calibrate coverage amounts.
+- **Pricing and underwriting:** Insurers use mortality tables to calculate premiums and reserves.  Understanding demographic mortality trends helps advisors explain why premium rates differ by age, sex and health status.
+- **Longevity risk modeling:** State‑level life‑expectancy variations may influence retirement income projections and annuity selection.
+
+Incorporating credible mortality data into planning enhances the accuracy of life‑insurance needs analyses and demonstrates evidence‑based advice.

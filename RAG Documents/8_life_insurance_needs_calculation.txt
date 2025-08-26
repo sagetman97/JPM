@@ -1,0 +1,27 @@
+
+Life Insurance Needs Calculation Methods
+======================================
+
+Financial advisors use several methods to estimate the amount of life insurance coverage a client needs.  Each method balances simplicity with thoroughness and should be tailored to the client’s specific circumstances.
+
+**1. Multiple‑of‑income approach**
+
+- The simplest method is to multiply the client’s current annual income by the number of years they want to provide financial support for survivors.  A common recommendation is seven to ten years of incomehttps://ritterim.com/blog/4-ways-to-calculate-your-clients-life-insurance-needs/#final-expense#:~:text=The%20Multiple,Life%20Insurance%20Needs.
+- While easy, this method doesn’t account for survivors’ specific needs, existing assets, inflation or family structure and can lead to over‑ or under‑insuringhttps://ritterim.com/blog/4-ways-to-calculate-your-clients-life-insurance-needs/#final-expense#:~:text=It%E2%80%99s%20an%20easy%20method%20for,inflation%20or%20future%20salary%20increases.
+
+**2. DIME method (Debt, Income, Mortgage, Education)**
+
+- This method adds up four components: (1) **Debt** – all debts except the mortgage, including credit‑card and student‑loan debt; (2) **Income** – the multiple‑of‑income calculation for the years income needs to be replaced; (3) **Mortgage** – the remaining mortgage balance; and (4) **Education** – anticipated education costs for childrenhttps://ritterim.com/blog/4-ways-to-calculate-your-clients-life-insurance-needs/#final-expense#:~:text=The%20DIME%20method%20for%20life,method%2C%20add%20up%20their%20DIME.
+- The DIME method provides a more detailed estimate than the simple multiple of income but still ignores existing resources and may leave the client overinsuredhttps://ritterim.com/blog/4-ways-to-calculate-your-clients-life-insurance-needs/#final-expense#:~:text=The%20DIME%20method%20gives%20you,might%20leave%20your%20client%20overinsured.
+
+**3. Human life value approach**
+
+- This method estimates the present value of the client’s future earnings.  It considers the client’s age, gender, occupation and expected earnings until retirement, subtracts taxes and living expenses, assumes an investment return on the remaining amount, and adds the value of employee benefitshttps://ritterim.com/blog/4-ways-to-calculate-your-clients-life-insurance-needs/#final-expense#:~:text=Human%20Life%20Value%20Approach.
+- The focus is on replacing income rather than covering specific future expenses; it may not account for funeral costs or educational expenses but offers a more tailored estimate than the DIME method.
+
+**4. Capital needs analysis**
+
+- A comprehensive method that accounts for current and future income of both the insured and their spouse; immediate cash needs at death (funeral expenses, debt repayment, mortgage payoff); future obligations (college, weddings, long‑term care, retirement); and existing assetshttps://ritterim.com/blog/4-ways-to-calculate-your-clients-life-insurance-needs/#final-expense#:~:text=The%20capital%20needs%20assessment%20is,the%20specific%20needs%20of%20survivors.
+- There are two approaches: the **earnings‑only approach**, where survivors live off investment earnings and the principal remains intact, requiring a larger death benefit; and the **liquidation approach**, where survivors spend principal and earnings, which may involve more risk if investments underperformhttps://ritterim.com/blog/4-ways-to-calculate-your-clients-life-insurance-needs/#final-expense#:~:text=%2A%20Earnings,earns%20less%20than%20originally%20predicted.
+
+Advisors often combine these methods and adjust them based on a client’s unique circumstances to arrive at an appropriate coverage recommendation.
