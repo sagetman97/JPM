@@ -856,7 +856,7 @@ class ChatWebSocketManager {
   }
   
   private connect() {
-    this.ws = new WebSocket(`ws://localhost:8001/ws/chat/${this.sessionId}`);
+    this.ws = new WebSocket(`${process.env.NEXT_PUBLIC_CHATBOT_WS_URL || 'ws://localhost:8001'}/ws/chat/${this.sessionId}`);
     
     this.ws.onopen = () => {
       console.log('WebSocket connected to chatbot on Port 8001');

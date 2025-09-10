@@ -25,3 +25,7 @@ services:
           key: QDRANT_HOST
       - key: QDRANT_PORT
         value: 6333
+      - key: BACKEND_API_URL
+        value: https://portfolio-tools-14zf.onrender.com
+      - key: FRONTEND_URL
+        value: https://roboadvisor-mu.vercel.app

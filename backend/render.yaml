@@ -10,7 +10,7 @@ services:
       - key: API_PORT
         value: $PORT
       - key: ALLOWED_ORIGINS
-        value: https://your-vercel-app.vercel.app
+        value: https://roboadvisor-mu.vercel.app,http://localhost:3000
       - key: OPENAI_API_KEY
         fromDatabase:
           name: portfolio-tools-db
