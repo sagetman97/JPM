@@ -112,8 +112,8 @@ When creating services, you'll see these fields in the Render form:
    - **Root Directory**: `frontend`
    - **Environment Variables**:
      - `NEXT_PUBLIC_API_BASE_URL`: `https://portfolio-tools.onrender.com`
-     - `NEXT_PUBLIC_CHATBOT_URL`: `https://chatbot-service.onrender.com`
-     - `NEXT_PUBLIC_CHATBOT_WS_URL`: `wss://chatbot-service.onrender.com`
+     - `NEXT_PUBLIC_CHATBOT_URL`: `https://chatbot-service-14zf.onrender.com`
+     - `NEXT_PUBLIC_CHATBOT_WS_URL`: `wss://chatbot-service-14zf.onrender.com`
 6. Click "Deploy"
 7. Wait for deployment (2-3 minutes)
 8. Copy your Vercel URL (e.g., `https://your-app.vercel.app`)
