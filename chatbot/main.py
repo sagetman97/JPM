@@ -1228,16 +1228,16 @@ async def test_chat_orchestrator(request: ChatRequest):
         # Add timeout to orchestrator call
         import asyncio
         try:
-            # Process through orchestrator with 30 second timeout
+            # Process through orchestrator with 300 second timeout (5 minutes) to allow retry logic
             response = await asyncio.wait_for(
                 chatbot_orchestrator.process_message(message, request.session_id),
-                timeout=30.0
+                timeout=300.0
             )
             logger.info(f"🧪 TEST: Orchestrator returned response within timeout")
         except asyncio.TimeoutError:
-            logger.error(f"🧪 TEST: Orchestrator timed out after 30 seconds!")
+            logger.error(f"🧪 TEST: Orchestrator timed out after 300 seconds!")
             return ChatResponseAPI(
-                content="Error: Orchestrator timed out after 30 seconds. This indicates a hanging issue.",
+                content="Error: Orchestrator timed out after 5 minutes. This indicates a hanging issue.",
                 quality_score=0.0,
                 routing_decision={"route_type": "timeout", "confidence": 0.0},
                 disclaimers=[],
