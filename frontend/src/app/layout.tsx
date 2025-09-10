@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="bg-white">
       <head />
-      <body className="bg-white min-h-screen">
+      <body className={`bg-white min-h-screen ${inter.variable} ${jetbrainsMono.variable}`}>
         <div className="w-full flex justify-center">
           <div className="w-full max-w-7xl">
             <nav className="flex items-center justify-between px-12 pt-8 pb-4 bg-[#1B365D] shadow text-white rounded-t-3xl">
