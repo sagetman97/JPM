@@ -83,7 +83,14 @@ class BackendAPIIntegrator:
                     
                     except Exception as e:
                         logger.error(f"❌ Unexpected error on attempt {attempt + 1}: {e}")
-                        return {"error": f"API call failed: {str(e)}"}
+                        if attempt < max_retries - 1:
+                            delay = base_delay * (2 ** attempt)  # Exponential backoff: 5s, 10s, 20s
+                            logger.info(f"⏳ Retrying in {delay} seconds...")
+                            await asyncio.sleep(delay)
+                            continue
+                        else:
+                            logger.error(f"❌ All {max_retries} attempts failed")
+                            return {"error": f"API call failed after {max_retries} attempts: {str(e)}"}
                     
         except Exception as e:
             logger.error(f"Error calling backend API: {e}")
