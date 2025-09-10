@@ -1574,7 +1574,7 @@ class ChatbotOrchestrator:
             import httpx
             
             # Try to get report contexts for this session
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=90.0) as client:
                 response = await client.get(f"{config.backend_api_url}/api/report-context/session/{session_id}")
                 
                 if response.status_code == 200:
