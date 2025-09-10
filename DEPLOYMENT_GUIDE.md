@@ -91,13 +91,10 @@ When creating services, you'll see these fields in the Render form:
    - **Auto-Deploy**: `On Commit` (enabled)
 4. **Environment Variables** (click "Add Environment Variable" for each):
    - `OPENAI_API_KEY`: `your-openai-key-here`
-   - `TAVILY_API_KEY`: `your-tavily-key-here`
-   - `LANGSMITH_API_KEY`: `your-langsmith-key-here` (optional)
-   - `LANGSMITH_PROJECT`: `robo-advisor-chatbot`
-   - `LANGSMITH_ENDPOINT`: `https://api.smith.langchain.com`
-   - `QDRANT_HOST`: `your-qdrant-url.railway.app`
-   - `QDRANT_PORT`: `6333`
-   - `QDRANT_COLLECTION_NAME`: `robo_advisor_rag`
+   - `TAVILY_API_KEY`: `your-tavily-key-here` (optional - for external search)
+   - `LANGSMITH_API_KEY`: `your-langsmith-key-here` (optional - for monitoring)
+   - `LANGSMITH_PROJECT`: `robo-advisor-chatbot` (optional)
+   - **Note**: Qdrant uses in-memory storage by default - no external Qdrant needed!
 5. Click "Deploy web service"
 6. Wait for deployment (10-15 minutes)
 7. Copy the service URL (e.g., `https://chatbot-service.onrender.com`)
