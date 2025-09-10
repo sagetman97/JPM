@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: chatbot-service
+    env: python
+    buildCommand: pip install -r requirements.txt && playwright install chromium
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENAI_API_KEY
+        fromDatabase:
+          name: chatbot-db
+          key: OPENAI_API_KEY
+      - key: TAVILY_API_KEY
+        fromDatabase:
+          name: chatbot-db
+          key: TAVILY_API_KEY
+      - key: LANGSMITH_API_KEY
+        fromDatabase:
+          name: chatbot-db
+          key: LANGSMITH_API_KEY
+      - key: LANGSMITH_PROJECT
+        value: financial-advisor-assistant
+      - key: QDRANT_HOST
+        fromDatabase:
+          name: chatbot-db
+          key: QDRANT_HOST
+      - key: QDRANT_PORT
+        value: 6333

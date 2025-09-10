@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 const COVERAGE_GOALS = [
   { value: "living_expenses", label: "Family’s living expenses" },
@@ -109,6 +110,111 @@ export default function AssessmentPage() {
   const [editableSavings, setEditableSavings] = useState<number | null>(null);
   const [projectionParams, setProjectionParams] = useState<any>(null);
   const [cashValueProjection, setCashValueProjection] = useState<any[]>([]);
+  
+  // Data injection for PDF generation
+  const [injectedData, setInjectedData] = useState<any>(null);
+  const [isDataInjected, setIsDataInjected] = useState(false);
+  const [isPdfGenerationMode, setIsPdfGenerationMode] = useState(false);
+  
+  // Session integration state
+  const [externalSessionId, setExternalSessionId] = useState<string | null>(null);
+  const [isChatbotSession, setIsChatbotSession] = useState(false);
+
+  // Handle data injection from localStorage (for PDF generation)
+  useEffect(() => {
+    const assessmentData = localStorage.getItem('assessment_data');
+    const sessionId = localStorage.getItem('assessment_session_id');
+    const fromChatbot = localStorage.getItem('assessment_from_chatbot');
+    const pdfGeneration = localStorage.getItem('assessment_pdf_generation');
+    
+    if (assessmentData && fromChatbot === 'true') {
+      try {
+        const data = JSON.parse(assessmentData);
+        setInjectedData(data);
+        setIsDataInjected(true);
+        
+        // Set the form data and trigger analysis
+        setForm(data);
+        setStep(9); // Go to analysis step to trigger handleSubmit
+        
+        // If this is for PDF generation, set PDF generation mode
+        if (pdfGeneration === 'true') {
+          setIsPdfGenerationMode(true);
+          setIsChatbotSession(false); // Override chatbot session to show results
+          console.log('PDF generation mode - will trigger analysis and show results');
+        }
+        
+        // Clear the localStorage data
+        localStorage.removeItem('assessment_data');
+        localStorage.removeItem('assessment_session_id');
+        localStorage.removeItem('assessment_from_chatbot');
+        localStorage.removeItem('assessment_pdf_generation');
+        
+        console.log('Assessment data injected for PDF generation - will trigger analysis');
+      } catch (error) {
+        console.error('Error parsing injected assessment data:', error);
+      }
+    }
+  }, []);
+
+  // Auto-close tab after PDF generation
+  useEffect(() => {
+    if (isPdfGenerationMode && result) {
+      console.log('PDF generation mode - will auto-close tab in 10 seconds');
+      // Wait for PDF generation to complete, then close tab
+      const timer = setTimeout(() => {
+        console.log('Auto-closing tab after PDF generation');
+        window.close();
+      }, 10000); // 10 second delay to allow PDF generation
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isPdfGenerationMode, result]);
+
+  // Handle session ID from URL parameters
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const sessionId = searchParams.get('session_id');
+    const source = searchParams.get('source');
+    const knowledgeLevel = searchParams.get('knowledge_level');
+    const step = searchParams.get('step');
+    const analysisData = searchParams.get('analysis_data');
+    
+    console.log('URL parameters:', { sessionId, source, knowledgeLevel, step, hasAnalysisData: !!analysisData, fullUrl: window.location.href });
+    
+    // Check if this is a chatbot-initiated session by looking for chatbot metadata
+    const isFromChatbot = source === 'robo_advisor_chatbot' || knowledgeLevel || sessionId;
+    
+    if (isFromChatbot) {
+      setExternalSessionId(sessionId);
+      setIsChatbotSession(true);
+      console.log('Assessment opened from chatbot with metadata:', { sessionId, source, knowledgeLevel });
+      
+      // If we have analysis data and step=10, restore the form state and results
+      if (analysisData && step === '10') {
+        try {
+          const decodedData = JSON.parse(atob(analysisData));
+          console.log('Restoring assessment state from URL data:', decodedData);
+          
+          if (decodedData.formData) {
+            setForm(decodedData.formData);
+          }
+          
+          if (decodedData.result) {
+            console.log('Setting result from URL data:', decodedData.result);
+            setResult(decodedData.result);
+            setStep(10); // Set to results step
+            // Don't enable PDF generation mode for normal chatbot sessions
+            // PDF generation mode is only for when PDF generator takes screenshots
+          }
+        } catch (error) {
+          console.error('Failed to decode analysis data:', error);
+        }
+      }
+    } else {
+      console.log('Assessment opened directly (not from chatbot)');
+    }
+  }, []);
 
   // Step definitions
   const steps = [
@@ -122,6 +228,7 @@ export default function AssessmentPage() {
     "Assets & Coverage",
     "Review",
     "Advisor Notes & Results",
+    "Results",
   ];
 
   // Multi-select handler
@@ -211,6 +318,7 @@ export default function AssessmentPage() {
         other_debts: parseCurrency(form.other_debts),
         additional_obligations: parseCurrency(form.additional_obligations),
         num_children: parseInt(form.num_children) || 0,
+        provide_education: form.coverage_goals.includes("education"), // Set based on coverage goals
         education_cost_per_child:
           form.education_type === "custom"
             ? parseCurrency(form.education_cost_per_child)
@@ -239,11 +347,286 @@ export default function AssessmentPage() {
       });
       if (!res.ok) throw new Error("Failed to calculate needs");
       const data = await res.json();
-      setResult(data);
+      
+      // Handle different session types
+      console.log('Checking session type:', { isChatbotSession, isPdfGenerationMode, externalSessionId });
+      
+      // Create comprehensive result object similar to portfolio analyzer
+      const transformedResult = {
+        // Include original form data for PDF generation
+        age: parseInt(form.age) || 35,
+        marital_status: form.marital_status,
+        dependents: parseInt(form.dependents) || 0,
+        health_status: form.health_status,
+        tobacco_use: form.tobacco_use,
+        
+        // Financial data (using available form fields)
+        monthly_income: parseCurrency(form.monthly_income),
+        monthly_expenses: parseCurrency(form.monthly_expenses),
+        savings: parseCurrency(form.savings),
+        investments: parseCurrency(form.investments),
+        other_assets: parseCurrency(form.other_assets),
+        
+        // Liabilities
+        mortgage_balance: parseCurrency(form.mortgage_balance),
+        other_debts: parseCurrency(form.other_debts),
+        additional_obligations: form.additional_obligations,
+        
+        // Current insurance
+        individual_life: parseCurrency(form.individual_life),
+        group_life: parseCurrency(form.group_life),
+        
+        // Goals and preferences
+        cash_value_importance: form.cash_value_importance,
+        permanent_coverage: form.permanent_coverage,
+        coverage_goals: form.coverage_goals,
+        other_coverage_goal: form.other_coverage_goal,
+        
+        // Education planning
+        provide_education: form.provide_education,
+        num_children: parseInt(form.num_children) || 0,
+        education_type: form.education_type,
+        education_cost_per_child: parseCurrency(form.education_cost_per_child),
+        
+        // Additional fields
+        funeral_expenses: parseCurrency(form.funeral_expenses),
+        legacy_amount: parseCurrency(form.legacy_amount),
+        special_needs: form.special_needs,
+        support_years: parseInt(form.support_years) || 10,
+        adjust_inflation: form.adjust_inflation,
+        
+        // Backend analysis results
+        recommended_coverage: data.recommended_coverage,
+        gap: data.gap,
+        product_recommendation: data.product_recommendation,
+        rationale: data.rationale,
+        duration_years: data.duration_years,
+        advisor_notes: data.advisor_notes,
+        
+        // Needs breakdown (for frontend display)
+        needs_breakdown: data.needs_breakdown,
+        
+        // Life insurance needs breakdown (for comprehensive data)
+        life_insurance_needs: {
+          income_replacement: data.needs_breakdown.living_expenses,
+          debt_payoff: data.needs_breakdown.debts,
+          education_funding: data.needs_breakdown.education,
+          funeral_expenses: data.needs_breakdown.funeral,
+          legacy_amount: data.needs_breakdown.legacy,
+          special_needs: data.needs_breakdown.other,
+          total_need: data.recommended_coverage,
+          coverage_gap: data.gap
+        },
+        
+        // Cash value projections
+        cash_value_projection: data.cash_value_projection,
+        projection_parameters: data.projection_parameters,
+        recommended_monthly_savings: data.recommended_monthly_savings,
+        max_monthly_contribution: data.max_monthly_contribution,
+        
+        // Processing info
+        processing_time: 0.02 // Assessment is typically faster than portfolio analysis
+      };
+
+      if (isPdfGenerationMode) {
+        // PDF generation mode - show results and send completion signal
+        console.log('PDF generation mode - showing results and sending completion signal');
+        setResult(transformedResult);
+        
+        // Send completion signal to PDF generator
+        setTimeout(() => {
+          window.postMessage({ 
+            type: 'ANALYSIS_COMPLETE', 
+            sessionId: externalSessionId,
+            data: transformedResult 
+          }, '*');
+          console.log('Analysis completion signal sent');
+        }, 2000); // Give time for charts to render
+        
+      } else {
+        // Both normal and chatbot sessions - just show results immediately
+        console.log('Showing results for session type:', isChatbotSession ? 'chatbot' : 'normal');
+        setResult(transformedResult);
+        
+        // Update URL with analysis data for chatbot sessions
+        if (isChatbotSession) {
+          updateUrlWithAnalysis({
+            formData: form,
+            result: transformedResult,
+            step: 10
+          });
+        }
+      }
+      
+      // For chatbot sessions, trigger PDF generation after report is fully rendered
+      if (isChatbotSession) {
+        // Wait for report to be fully rendered (charts, etc.)
+        setTimeout(async () => {
+          console.log('Report should be rendered now, triggering PDF generation');
+          await handleFormCompletion(transformedResult);
+        }, 8000); // Give time for charts and content to fully render
+      } else {
+        // For normal sessions, also trigger auto-close after a delay
+        setTimeout(async () => {
+          console.log('Normal session - triggering auto-close');
+          await handleFormCompletion(transformedResult);
+        }, 5000); // Shorter delay for normal sessions
+      }
+      
     } catch (err: any) {
       setError(err.message || "Unknown error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Update URL with analysis data for PDF generation
+  const updateUrlWithAnalysis = (analysisData: any) => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const source = searchParams.get('source');
+    
+    if (source === 'robo_advisor_chatbot') {
+      try {
+        const encodedData = btoa(JSON.stringify(analysisData));
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('step', '10'); // Results step
+        currentUrl.searchParams.set('analysis_data', encodedData);
+        
+        window.history.replaceState({}, '', currentUrl.toString());
+        console.log('URL updated with analysis data for PDF generation');
+      } catch (error) {
+        console.error('Failed to update URL with analysis data:', error);
+      }
+    }
+  };
+
+  // Store report context for chatbot follow-up questions
+  const storeReportContext = async (formData: any, result: any) => {
+    if (!externalSessionId) return;
+    
+    try {
+      const reportContextResponse = await fetch('http://localhost:8000/api/report-context/assessment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: externalSessionId,
+          formData: formData,
+          result: result
+        })
+      });
+      
+      if (reportContextResponse.ok) {
+        console.log('Assessment report context stored successfully');
+      } else {
+        console.error('Failed to store report context:', reportContextResponse.status);
+      }
+    } catch (error) {
+      console.error('Error storing report context:', error);
+    }
+  };
+
+  // Handle PDF generation for chatbot sessions
+  const handleFormCompletion = async (result: any) => {
+    try {
+      console.log('Triggering PDF generation for chatbot session:', {
+        external_session_id: externalSessionId,
+        tool_type: 'assessment'
+      });
+      
+      // If we don't have a session ID, do nothing
+      if (!externalSessionId) {
+        console.log('No session ID available, skipping PDF generation');
+        return;
+      }
+      
+      // Store analysis data in backend for state persistence
+      const storeResponse = await fetch('http://localhost:8000/api/report-context/assessment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: externalSessionId,
+          formData: form,
+          result: result
+        })
+      });
+      
+      console.log('Data storage response status:', storeResponse.status);
+      
+      if (storeResponse.ok) {
+        console.log('Analysis data stored in backend successfully');
+      } else {
+        console.error('Failed to store analysis data in backend:', storeResponse.status);
+      }
+
+      // Store comprehensive report context for chatbot
+      const reportContextResponse = await fetch('http://localhost:8000/api/report-context/assessment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: externalSessionId,
+          formData: form,
+          result: result
+        })
+      });
+      
+      console.log('Report context storage response status:', reportContextResponse.status);
+      
+      if (reportContextResponse.ok) {
+        console.log('Report context stored successfully for chatbot');
+      } else {
+        console.error('Failed to store report context:', reportContextResponse.status);
+      }
+      
+      // Update URL with analysis data for PDF generator
+      updateUrlWithAnalysis({
+        formData: form,
+        result: result,
+        step: 10
+      });
+      
+      // Notify the chatbot that PDF generation is ready with comprehensive data
+      const notifyResponse = await fetch('http://localhost:8001/api/chat/tool-completion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          external_session_id: externalSessionId,
+          tool_type: 'assessment',
+          result_data: {
+            formData: form,
+            result: result,
+            step: 10,
+            // Include comprehensive backend analysis data
+            life_insurance_needs: result.life_insurance_needs,
+            cash_value_projection: result.cash_value_projection,
+            projection_parameters: result.projection_parameters,
+            recommended_monthly_savings: result.recommended_monthly_savings,
+            max_monthly_contribution: result.max_monthly_contribution,
+            product_recommendation: result.product_recommendation,
+            rationale: result.rationale,
+            processing_time: result.processing_time
+          },
+          pdf_url: window.location.href // Use current URL with analysis data
+        })
+      });
+      
+      console.log('Chatbot notification response status:', notifyResponse.status);
+      
+      if (notifyResponse.ok) {
+        console.log('PDF generation process initiated successfully');
+      } else {
+        console.error('Failed to notify chatbot:', notifyResponse.status);
+      }
+      
+      // Close the tab after a short delay
+      setTimeout(() => {
+        console.log('Closing chatbot tab after PDF generation');
+        window.close();
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Failed to trigger PDF generation:', error);
+      // Still close tab even if there's an error
+      setTimeout(() => window.close(), 3000);
     }
   };
 
@@ -598,7 +981,7 @@ export default function AssessmentPage() {
             >{loading ? "Calculating..." : "Calculate & Show Results"}</button>
             {error && <div className="text-red-500">{error}</div>}
             {result && (
-              <div className="bg-gray-50 rounded-xl p-6 mt-4 w-full">
+              <div className="bg-gray-50 rounded-xl p-6 mt-4 w-full" data-testid="assessment-results">
                 <div className="mb-4">
                   <div className="font-bold text-lg">Recommended Coverage: <span className="text-[#1B365D]">${result.recommended_coverage.toLocaleString()}</span></div>
                   <div className="text-gray-700">Gap: <span className="font-semibold">${result.gap.toLocaleString()}</span></div>
@@ -671,6 +1054,99 @@ export default function AssessmentPage() {
             )}
           </div>
         );
+      case 10:
+        // Results step - display the assessment results
+        return (
+          <div className="w-full" data-testid="assessment-results">
+            {result ? (
+              <div className="space-y-6">
+                <div className="mb-6">
+                  <div className="font-bold text-2xl text-[#1B365D] mb-2">Assessment Results</div>
+                  <div className="text-lg">Recommended Coverage: <span className="text-[#1B365D] font-bold">${result.recommended_coverage?.toLocaleString() || 0}</span></div>
+                  <div className="text-gray-700">Coverage Gap: <span className="font-semibold">${result.gap?.toLocaleString() || 0}</span></div>
+                  {/* Debug info */}
+                  <div className="text-xs text-gray-500 mt-2">
+                    Debug: recommended_coverage={result.recommended_coverage}, gap={result.gap}
+                  </div>
+                  <div className="text-gray-700">Duration: <span className="font-semibold">{
+                    result.product_recommendation && result.product_recommendation.includes("IUL")
+                      ? "permanent"
+                      : (result.duration_years || "-") + " years"
+                  }</span></div>
+                </div>
+                
+                {result.product_recommendation && (
+                  <div className="mb-6">
+                    <div className="font-bold text-xl text-[#1B365D] mb-2">Product Recommendation: {result.product_recommendation}</div>
+                    <div className="text-gray-700 mb-2">{result.product_description || "JPM TermVest+ is a flexible life insurance solution that allows you to start with affordable term coverage and, when ready, convert to a permanent Indexed Universal Life (IUL) policy that builds cash value. The IUL track offers the potential for tax-advantaged growth, flexible premiums, and a lifetime death benefit."}</div>
+                    <div className="text-gray-700 mb-2"><b>Why?</b> {result.rationale}</div>
+                  </div>
+                )}
+                
+                {result.product_recommendation && result.product_recommendation.includes("IUL") && (
+                  <div className="mb-6">
+                    <label className="block font-semibold mb-1">Monthly Cash Value Savings:</label>
+                    <div className="text-sm text-gray-600 mb-2">
+                      Based on your input data, this is our calculated suggested monthly cash value savings. You can adjust this value at any time to reflect changes in your financial situation (e.g., saving more or less).
+                    </div>
+                    <input
+                      type="number"
+                      min={50}
+                      step={10}
+                      value={editableSavings ?? result.recommended_monthly_savings}
+                      onChange={e => {
+                        const val = Number(e.target.value);
+                        setEditableSavings(val);
+                        setCashValueProjection(recalcProjection(val));
+                      }}
+                      className="w-40 border rounded-lg px-3 py-2"
+                    />
+                  </div>
+                )}
+                
+                {result.product_recommendation && result.product_recommendation.includes("IUL") && (
+                  <div className="mt-6">
+                    <CashValueChart data={cashValueProjection} />
+                    <div className="text-xs italic text-gray-500 mt-2">
+                      Projection assumes illustrated rate of {projectionParams?.illustrated_rate ? (projectionParams.illustrated_rate * 100).toFixed(1) : '5.5'}%, allocations of {projectionParams?.year1_allocation ? (projectionParams.year1_allocation * 100).toFixed(0) : '20'}% in year 1 and {projectionParams?.year2plus_allocation ? (projectionParams.year2plus_allocation * 100).toFixed(0) : '60'}% in subsequent years. Actual results may vary and are not guaranteed.
+                    </div>
+                    <div className="my-8" />
+                  </div>
+                )}
+                
+                <div className="mb-4">
+                  <div className="font-semibold text-lg mb-2">Coverage Breakdown</div>
+                  <ul className="list-disc ml-6 mb-4">
+                    <li>Living Expenses: ${result.needs_breakdown?.living_expenses?.toLocaleString() || 0}</li>
+                    <li>Debts: ${result.needs_breakdown?.debts?.toLocaleString() || 0}</li>
+                    <li>Education: ${result.needs_breakdown?.education?.toLocaleString() || 0}</li>
+                    <li>Funeral: ${result.needs_breakdown?.funeral?.toLocaleString() || 0}</li>
+                    <li>Legacy: ${result.needs_breakdown?.legacy?.toLocaleString() || 0}</li>
+                    <li>Other: ${result.needs_breakdown?.other?.toLocaleString() || 0}</li>
+                  </ul>
+                  {result.needs_breakdown && <CoverageBreakdownChart breakdown={result.needs_breakdown} />}
+                </div>
+                
+                {result.advisor_notes && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded">
+                    <div className="font-semibold">Advisor Notes:</div>
+                    <div>{result.advisor_notes}</div>
+                  </div>
+                )}
+                
+                {/* Add two centered buttons at the bottom */}
+                <div className="flex justify-center gap-8 mt-8">
+                  <button className="bg-[#1B365D] text-white rounded-lg px-8 py-3 font-semibold shadow hover:bg-blue-900 disabled:opacity-50 text-lg">Ask Robo-Advisor</button>
+                  <button className="bg-[#10B981] text-white rounded-lg px-8 py-3 font-semibold shadow hover:bg-green-700 disabled:opacity-50 text-lg">Start Application</button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-500">No results available. Please complete the assessment first.</div>
+              </div>
+            )}
+          </div>
+        );
       default:
         return null;
     }
@@ -734,6 +1210,7 @@ export default function AssessmentPage() {
       </div>
     );
   }
+
 
   return (
     <div className="w-full flex flex-col items-start min-h-[70vh] text-black">

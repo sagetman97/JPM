@@ -36,7 +36,6 @@ async def test_intent_classification():
         context = ConversationContext(
             session_id="test_session",
             knowledge_level=KnowledgeLevel.BEGINNER,
-            semantic_themes=[],
             user_goals=[],
             current_topic=None,
             previous_calculations=[],
@@ -117,7 +116,6 @@ async def test_smart_router():
         context = ConversationContext(
             session_id="test_session",
             knowledge_level=KnowledgeLevel.BEGINNER,
-            semantic_themes=[],
             user_goals=[],
             current_topic=None,
             previous_calculations=[],

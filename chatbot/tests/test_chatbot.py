@@ -43,7 +43,6 @@ async def test_chatbot_components():
         context = ConversationContext(
             session_id="test_session",
             knowledge_level="beginner",
-            semantic_themes=["life_insurance"],
             user_goals=["financial_planning"]
         )
         print(f"   ✅ Schema instantiation successful")
@@ -216,7 +215,6 @@ async def test_basic_functionality():
             # Test with a simple query
             test_context = {
                 "knowledge_level": "beginner",
-                "semantic_themes": [],
                 "user_goals": [],
                 "current_topic": "general"
             }
@@ -276,7 +274,6 @@ async def test_integration():
         test_context = ConversationContext(
             session_id="test_integration",
             knowledge_level="beginner",
-            semantic_themes=["life_insurance"],
             user_goals=["financial_planning"]
         )
         

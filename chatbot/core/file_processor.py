@@ -10,6 +10,7 @@ from datetime import datetime
 from openai import AsyncOpenAI
 from .schemas import FileUpload, ConversationContext
 from .config import config
+from .universal_context_selector import UniversalContextSelector, ContextSelectionResult
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,11 @@ class FileProcessor:
         self.upload_dir = Path("uploads")
         self.upload_dir.mkdir(exist_ok=True)
         self.supported_file_types = config.supported_file_types
+        
+        # Initialize universal context selector for follow-up support
+        from .follow_up_detector import FollowUpDetector
+        follow_up_detector = FollowUpDetector(self.llm)
+        self.context_selector = UniversalContextSelector(follow_up_detector)
     
     async def process_uploaded_file(
         self, 
@@ -456,8 +462,12 @@ class FileProcessor:
             file_content = file_context["content"]
             file_metadata = file_context["metadata"]
             
-            # Build analysis prompt
-            prompt = self._build_file_analysis_prompt(query, file_content, file_metadata, context)
+            # Use Universal Context Selector for intelligent context handling
+            context_result = await self.context_selector.get_relevant_context(query, context)
+            logger.info(f"📁 FILE PROCESSOR: Context selection result: {context_result.context_type}")
+            
+            # Build analysis prompt with enhanced context
+            prompt = self._build_file_analysis_prompt(query, file_content, file_metadata, context, context_result)
             
             # Get LLM analysis
             response = await self.llm.chat.completions.create(
@@ -480,19 +490,28 @@ class FileProcessor:
         query: str, 
         file_content: str, 
         file_metadata: Dict[str, Any], 
-        context: ConversationContext
+        context: ConversationContext,
+        context_result: ContextSelectionResult = None
     ) -> str:
         """Build prompt for file analysis"""
+        
+        # Build conversation context string based on context selection result
+        conversation_context = ""
+        if context_result and context_result.context_type in ["follow_up", "structured_data"]:
+            conversation_context = context_result.context_selector.get_conversation_context_string(context_result)
+        else:
+            conversation_context = f"""
+        **Conversation Context:**
+        - User's knowledge level: {context.knowledge_level.value}
+        - Current focus: {context.current_topic or 'General'}
+        """
         
         return f"""
         Analyze this uploaded file in the context of the user's question and conversation history.
         
         **User Question:** "{query}"
         
-        **Conversation Context:**
-        - User's knowledge level: {context.knowledge_level.value}
-        - Previous questions: {', '.join(context.semantic_themes) if context.semantic_themes else 'None'}
-        - Current focus: {context.current_topic or 'General'}
+        {conversation_context}
         
         **File Information:**
         - Filename: {file_metadata.get('filename', 'Unknown')}
@@ -598,4 +617,155 @@ class FileProcessor:
             
         except Exception as e:
             logger.error(f"Error cleaning up old files: {e}")
-            return 0 
+            return 0
+    
+    async def add_tool_result_context(
+        self, 
+        external_session_id: str, 
+        tool_type: str, 
+        result_data: Dict[str, Any], 
+        context: ConversationContext
+    ) -> str:
+        """Add tool result as context for future queries"""
+        
+        try:
+            # Create a pseudo-file ID for the tool result
+            tool_file_id = f"tool_{external_session_id}_{tool_type}"
+            
+            # Format the tool result data as readable text
+            formatted_content = self._format_tool_result(tool_type, result_data)
+            
+            # Store the context data
+            await self._store_file_context(
+                tool_file_id,
+                formatted_content,
+                {
+                    "type": "tool_result",
+                    "tool_type": tool_type,
+                    "external_session_id": external_session_id,
+                    "result_data": result_data,
+                    "created_at": datetime.utcnow().isoformat()
+                },
+                context
+            )
+            
+            return tool_file_id
+            
+        except Exception as e:
+            logger.error(f"Error adding tool result context: {e}")
+            return ""
+    
+    def _format_tool_result(self, tool_type: str, result_data: Dict[str, Any]) -> str:
+        """Format tool result data as readable text for context"""
+        
+        try:
+            if tool_type == "assessment":
+                return self._format_assessment_result(result_data)
+            elif tool_type == "portfolio":
+                return self._format_portfolio_result(result_data)
+            else:
+                return f"Tool Result ({tool_type}):\n{str(result_data)}"
+                
+        except Exception as e:
+            logger.error(f"Error formatting tool result: {e}")
+            return f"Tool result data available for {tool_type} analysis."
+    
+    def _format_assessment_result(self, result_data: Dict[str, Any]) -> str:
+        """Format assessment result for context"""
+        
+        parts = [
+            "LIFE INSURANCE ASSESSMENT RESULTS",
+            "=" * 40,
+            "",
+            f"Recommended Coverage: ${result_data.get('recommended_coverage', 0):,.2f}",
+            f"Coverage Gap: ${result_data.get('gap', 0):,.2f}",
+            f"Product Recommendation: {result_data.get('product_recommendation', 'N/A')}",
+            f"Duration: {result_data.get('duration_years', 'N/A')} years",
+            "",
+            "NEEDS BREAKDOWN:",
+        ]
+        
+        breakdown = result_data.get('needs_breakdown', {})
+        for category, amount in breakdown.items():
+            if amount and amount > 0:
+                parts.append(f"- {category.replace('_', ' ').title()}: ${amount:,.2f}")
+        
+        if result_data.get('rationale'):
+            parts.extend([
+                "",
+                "RATIONALE:",
+                result_data['rationale']
+            ])
+        
+        return "\n".join(parts)
+    
+    def _format_portfolio_result(self, result_data: Dict[str, Any]) -> str:
+        """Format portfolio result for context"""
+        
+        parts = [
+            "PORTFOLIO ANALYSIS RESULTS",
+            "=" * 40,
+            "",
+            f"Total Assets: ${result_data.get('total_assets', 0):,.2f}",
+            f"Net Worth: ${result_data.get('total_net_worth', 0):,.2f}",
+            f"Portfolio Health Score: {result_data.get('portfolio_health_score', 0)}/100",
+            f"Risk Level: {result_data.get('risk_level', 'N/A')}",
+            ""
+        ]
+        
+        # Add asset allocation if available
+        if 'asset_allocation' in result_data:
+            parts.append("ASSET ALLOCATION:")
+            allocation = result_data['asset_allocation']
+            for asset_type, amount in allocation.items():
+                if amount and amount > 0:
+                    parts.append(f"- {asset_type.replace('_', ' ').title()}: ${amount:,.2f}")
+            parts.append("")
+        
+        # Add key findings
+        if result_data.get('key_findings'):
+            parts.append("KEY FINDINGS:")
+            for finding in result_data['key_findings']:
+                parts.append(f"- {finding}")
+            parts.append("")
+        
+        # Add recommendations
+        if result_data.get('recommendations'):
+            parts.append("RECOMMENDATIONS:")
+            for recommendation in result_data['recommendations']:
+                parts.append(f"- {recommendation}")
+        
+        return "\n".join(parts)
+    
+    async def analyze_with_tool_context(
+        self, 
+        query: str, 
+        external_session_id: str, 
+        context: ConversationContext
+    ) -> str:
+        """Analyze a query using tool result context"""
+        
+        try:
+            # Find tool result context for this session
+            tool_file_id = f"tool_{external_session_id}"
+            
+            # Check if we have context data
+            context_data = None
+            for file_id, data in self._file_contexts.items():
+                if file_id.startswith(tool_file_id):
+                    context_data = data
+                    break
+            
+            if not context_data:
+                return "I don't have access to your tool results. Please complete an assessment or portfolio analysis first."
+            
+            # Use the existing file analysis functionality
+            return await self.analyze_file_in_context(
+                file_id,
+                query,
+                context
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing with tool context: {e}")
+            return "I'm sorry, I couldn't analyze your question with the available context." 

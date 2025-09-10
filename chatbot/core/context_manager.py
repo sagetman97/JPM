@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ContextAnalysisResult:
     """Result of context analysis"""
-    semantic_themes: List[str]
     current_topic: Optional[str]
     user_goals: List[str]
     conversation_summary: str
@@ -31,7 +30,6 @@ class ConversationContextUpdater:
     """Updates conversation context based on conversation flow"""
     
     def __init__(self):
-        self.max_themes = 5  # Maximum themes to maintain
         self.max_goals = 3   # Maximum goals to maintain
         self.context_ttl = 10  # Context items older than 10 messages are pruned
         self.min_relevance_score = 0.3  # Minimum relevance for inclusion
@@ -42,53 +40,23 @@ class ConversationContextUpdater:
         try:
             logger.info("🔄 CONTEXT: Starting context update")
             
-            # 1. Extract semantic themes from recent conversation
-            # Include both user message and assistant response for context
-            recent_messages = session.messages[-6:] if len(session.messages) >= 6 else session.messages
+            # 1. Update current topic based on conversation flow and intent
+            current_topic = await self._identify_current_topic(intent_result)
             
-            # Also extract themes from the current user message and assistant response
-            current_themes = []
-            
-            # Extract themes from user message
-            if hasattr(message, 'type') and message.type == MessageType.USER:
-                user_themes = self._extract_themes_from_text(message.content)
-                current_themes.extend(user_themes)
-            elif hasattr(message, 'content'):
-                # Fallback: if message doesn't have type but has content, treat as user message
-                user_themes = self._extract_themes_from_text(message.content)
-                current_themes.extend(user_themes)
-            
-            # Extract themes from assistant response (if it contains relevant insurance terms)
-            if response:
-                response_themes = self._extract_themes_from_text(response)
-                current_themes.extend(response_themes)
-            
-            # Combine with recent conversation themes
-            all_themes = current_themes + [theme for msg in recent_messages if hasattr(msg, 'type') and msg.type == MessageType.USER 
-                                        for theme in self._extract_themes_from_text(msg.content)]
-            
-            # Remove duplicates and limit
-            themes = list(dict.fromkeys(all_themes))[:self.max_themes]
-            
-            # 2. Update current topic based on conversation flow
-            current_topic = await self._identify_current_topic(themes, intent_result)
-            
-            # 3. Recognize user goals from conversation patterns
+            # 2. Recognize user goals from conversation patterns
             goals = await self._extract_user_goals(session.messages[-10:] if len(session.messages) >= 10 else session.messages)
             
-            # 4. Clean and filter context to prevent pollution
-            cleaned_themes = self._clean_semantic_themes(themes)
+            # 3. Clean and filter context to prevent pollution
             cleaned_goals = self._clean_user_goals(goals)
             
-            # 5. Update context fields
+            # 4. Update context fields
             session.update_context(
-                semantic_themes=cleaned_themes,
                 current_topic=current_topic,
                 user_goals=cleaned_goals,
                 updated_at=datetime.utcnow()
             )
             
-            logger.info(f"🔄 CONTEXT: Updated - themes: {len(cleaned_themes)}, topic: {current_topic}, goals: {len(cleaned_goals)}")
+            logger.info(f"🔄 CONTEXT: Updated - topic: {current_topic}, goals: {len(cleaned_goals)}")
             
         except Exception as e:
             logger.error(f"🔄 CONTEXT: Error updating context: {e}")
@@ -96,59 +64,13 @@ class ConversationContextUpdater:
     
 
     
-    def _extract_themes_from_text(self, text: str) -> List[str]:
-        """Extract themes from text using pattern matching"""
-        themes = []
-        text_lower = text.lower()
-        
-        # Insurance-related themes
-        insurance_keywords = {
-            'term life': 'Term Life Insurance',
-            'whole life': 'Whole Life Insurance',
-            'universal life': 'Universal Life Insurance',
-            'iul': 'Indexed Universal Life',
-            'variable life': 'Variable Life Insurance',
-            'life insurance': 'Life Insurance',
-            'coverage': 'Insurance Coverage',
-            'premium': 'Insurance Premiums',
-            'death benefit': 'Death Benefit',
-            'cash value': 'Cash Value'
-        }
-        
-        for keyword, theme in insurance_keywords.items():
-            if keyword in text_lower:
-                themes.append(theme)
-        
-        # Financial planning themes
-        financial_keywords = {
-            'retirement': 'Retirement Planning',
-            'investment': 'Investment Planning',
-            'estate': 'Estate Planning',
-            'tax': 'Tax Planning',
-            'budget': 'Budget Planning',
-            'savings': 'Savings Goals'
-        }
-        
-        for keyword, theme in financial_keywords.items():
-            if keyword in text_lower:
-                themes.append(theme)
-        
-        # Calculator themes
-        if any(word in text_lower for word in ['calculate', 'calculator', 'coverage needs', 'insurance needs']):
-            themes.append('Insurance Needs Calculation')
-        
-        return themes
     
-    async def _identify_current_topic(self, themes: List[str], intent_result) -> Optional[str]:
-        """Identify current topic based on themes and intent"""
+    async def _identify_current_topic(self, intent_result) -> Optional[str]:
+        """Identify current topic based on intent and conversation context"""
         try:
-            if not themes:
-                return None
+            current_topic = None
             
-            # Use the most recent theme as current topic
-            current_topic = themes[-1] if themes else None
-            
-            # Override with intent-specific topic if available
+            # Determine topic based on intent
             if intent_result and hasattr(intent_result, 'intent'):
                 intent_value = intent_result.intent.value
                 if 'calculator' in intent_value:
@@ -157,6 +79,14 @@ class ConversationContextUpdater:
                     current_topic = 'Life Insurance Education'
                 elif 'comparison' in intent_value:
                     current_topic = 'Product Comparison'
+                elif 'portfolio' in intent_value:
+                    current_topic = 'Portfolio Analysis'
+                elif 'file' in intent_value:
+                    current_topic = 'File Analysis'
+                elif 'report' in intent_value:
+                    current_topic = 'Report Discussion'
+                elif 'follow_up' in intent_value or 'contextual' in intent_value:
+                    current_topic = 'Follow-up Discussion'
             
             logger.info(f"🔄 CONTEXT: Identified current topic: {current_topic}")
             return current_topic
@@ -194,27 +124,6 @@ class ConversationContextUpdater:
             logger.error(f"🔄 CONTEXT: Error extracting goals: {e}")
             return []
     
-    def _clean_semantic_themes(self, themes: List[str]) -> List[str]:
-        """Clean and filter semantic themes to prevent pollution"""
-        try:
-            if not themes:
-                return []
-            
-            # Remove duplicates while preserving order
-            cleaned = list(dict.fromkeys(themes))
-            
-            # Limit to maximum themes
-            cleaned = cleaned[:self.max_themes]
-            
-            # Filter out very short or generic themes
-            cleaned = [theme for theme in cleaned if len(theme) > 3 and theme != 'Insurance']
-            
-            logger.info(f"🔄 CONTEXT: Cleaned themes: {cleaned}")
-            return cleaned
-            
-        except Exception as e:
-            logger.error(f"🔄 CONTEXT: Error cleaning themes: {e}")
-            return themes[:self.max_themes] if themes else []
     
     def _clean_user_goals(self, goals: List[str]) -> List[str]:
         """Clean and filter user goals to prevent pollution"""
@@ -309,16 +218,16 @@ class ContextAwareQueryEnhancer:
                     logger.error(f"🔍 CONTEXT: Error in LLM context analysis: {e}")
                     # Continue with memory-based enhancement
             
-            # Fallback to memory-based enhancement
+            # Fallback to memory-based enhancement (deprecated)
             try:
                 enhanced_query = self._enhance_with_memory(query, context.conversation_memory)
                 
                 if enhanced_query != query:
                     self.enhancement_successes += 1
-                    logger.info(f"🔍 CONTEXT: Memory-enhanced query: '{query[:50]}...' -> '{enhanced_query[:100]}...'")
+                    logger.info(f"🔍 CONTEXT: Memory-enhanced query (deprecated): '{query[:50]}...' -> '{enhanced_query[:100]}...'")
                     return enhanced_query
             except Exception as e:
-                logger.error(f"🔍 CONTEXT: Error in memory-based enhancement: {e}")
+                logger.error(f"🔍 CONTEXT: Error in memory-based enhancement (deprecated): {e}")
                 # Return original query if enhancement fails
             
             logger.info("🔍 CONTEXT: No enhancement needed for this query")
@@ -413,53 +322,47 @@ class ContextAwareQueryEnhancer:
 
 
 class ContextPollutionGuard:
-    """Prevents context pollution and maintains relevance"""
+    """Prevents context pollution and maintains relevance with enhanced cleanup"""
     
     def __init__(self):
-        self.max_themes = 5  # Maximum themes to maintain
         self.max_goals = 3   # Maximum goals to maintain
         self.context_ttl = 10  # Context items older than 10 messages are pruned
         self.cleanup_threshold = 15  # Cleanup when message count exceeds this
+        self.topic_expiry_minutes = 30  # Topics expire after 30 minutes
+        self.goal_expiry_minutes = 60   # Goals expire after 60 minutes
+        self.max_conversation_turns = 50  # Maximum conversation turns to keep
     
     def clean_context(self, context: ConversationContext, message_count: int) -> ConversationContext:
-        """Clean and prune context to prevent pollution"""
+        """Clean and prune context to prevent pollution with enhanced cleanup"""
         try:
-            # NEW: Use conversation memory system instead of old context fields
-            if hasattr(context, 'conversation_memory') and context.conversation_memory:
-                # Let the memory system handle its own cleanup
-                logger.info("🧹 CONTEXT: Using conversation memory system for context management")
-                return context
+            logger.info(f"🧹 CONTEXT: Starting enhanced context cleanup (message count: {message_count})")
             
-            # FALLBACK: Old context cleaning logic (kept for backward compatibility)
-            # Only cleanup if we have many messages
-            if message_count < self.cleanup_threshold:
-                return context
-            
-            logger.info(f"🧹 CONTEXT: Cleaning context (message count: {message_count})")
-            
-            # Prune old semantic themes
-            if hasattr(context, 'semantic_themes') and context.semantic_themes:
-                if len(context.semantic_themes) > self.max_themes:
-                    context.semantic_themes = context.semantic_themes[-self.max_themes:]
-                    logger.info(f"🧹 CONTEXT: Pruned themes to {len(context.semantic_themes)}")
-            
-            # Prune old user goals
+            # Clean user goals with time-based expiration
             if hasattr(context, 'user_goals') and context.user_goals:
+                context.user_goals = self._clean_expired_goals(context.user_goals)
                 if len(context.user_goals) > self.max_goals:
                     context.user_goals = context.user_goals[-self.max_goals:]
                     logger.info(f"🧹 CONTEXT: Pruned goals to {len(context.user_goals)}")
             
-            # Reset current topic if it's too old
+            # Clean current topic with time-based expiration
             if hasattr(context, 'current_topic') and context.current_topic:
-                if self._is_topic_stale(context):
+                if self._is_topic_expired(context):
                     context.current_topic = None
-                    logger.info("🧹 CONTEXT: Reset stale current topic")
+                    logger.info("🧹 CONTEXT: Expired current topic")
             
-            logger.info("🧹 CONTEXT: Context cleanup completed")
+            # Clean simple history if it exists
+            if hasattr(context, 'simple_history') and context.simple_history:
+                context.simple_history = self._clean_conversation_history(context.simple_history)
+            
+            # Clean previous calculations
+            if hasattr(context, 'previous_calculations') and context.previous_calculations:
+                context.previous_calculations = self._clean_expired_calculations(context.previous_calculations)
+            
+            logger.info("🧹 CONTEXT: Enhanced context cleanup completed")
             return context
             
         except Exception as e:
-            logger.error(f"🧹 CONTEXT: Error cleaning context: {e}")
+            logger.error(f"🧹 CONTEXT: Error in enhanced context cleanup: {e}")
             return context
     
     def _is_topic_stale(self, context: ConversationContext) -> bool:
@@ -475,3 +378,57 @@ class ContextPollutionGuard:
         except Exception as e:
             logger.error(f"🧹 CONTEXT: Error checking topic staleness: {e}")
             return True
+    
+    def _is_topic_expired(self, context: ConversationContext) -> bool:
+        """Check if current topic has expired based on time"""
+        try:
+            if not hasattr(context, 'updated_at') or not context.updated_at:
+                return True
+            
+            # Check if topic is older than expiry time
+            time_diff = datetime.utcnow() - context.updated_at
+            return time_diff > timedelta(minutes=self.topic_expiry_minutes)
+            
+        except Exception as e:
+            logger.error(f"🧹 CONTEXT: Error checking topic expiration: {e}")
+            return True
+    
+    def _clean_expired_goals(self, goals: List[str]) -> List[str]:
+        """Clean expired goals from the list"""
+        try:
+            # For now, just return the most recent goals
+            # In a more sophisticated implementation, we could track goal timestamps
+            return goals[-self.max_goals:] if goals else []
+            
+        except Exception as e:
+            logger.error(f"🧹 CONTEXT: Error cleaning expired goals: {e}")
+            return goals[-self.max_goals:] if goals else []
+    
+    def _clean_conversation_history(self, history) -> Any:
+        """Clean conversation history to prevent it from growing too large"""
+        try:
+            if hasattr(history, 'conversation_turns'):
+                turns = history.conversation_turns
+                if len(turns) > self.max_conversation_turns:
+                    # Keep only the most recent turns
+                    history.conversation_turns = turns[-self.max_conversation_turns:]
+                    logger.info(f"🧹 CONTEXT: Pruned conversation history to {len(history.conversation_turns)} turns")
+            
+            return history
+            
+        except Exception as e:
+            logger.error(f"🧹 CONTEXT: Error cleaning conversation history: {e}")
+            return history
+    
+    def _clean_expired_calculations(self, calculations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Clean expired calculations from the list"""
+        try:
+            if not calculations:
+                return []
+            
+            # Keep only the most recent calculations (last 10)
+            return calculations[-10:] if len(calculations) > 10 else calculations
+            
+        except Exception as e:
+            logger.error(f"🧹 CONTEXT: Error cleaning expired calculations: {e}")
+            return calculations[-10:] if calculations else []

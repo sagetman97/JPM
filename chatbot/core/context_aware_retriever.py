@@ -101,7 +101,7 @@ class ContextAwareDocumentRetriever:
             Float between 0.0 and 1.0 representing context relevance
         """
         try:
-            content = document.get('content', '').lower()
+            content = (document.get('content', '') or document.get('assistant_response', '')).lower()
             source = document.get('source', '').lower()
             
             # Initialize relevance score

@@ -24,6 +24,7 @@ from enhanced_parser import EnhancedCSVParser
 from ai_analysis import PortfolioAnalyzer
 from schemas import PortfolioAnalysisResult, NeedsAssessmentInput, NeedsAssessmentResult
 from life_insurance_calculator import LifeInsuranceCalculator
+from cash_value_calculator import CashValueCalculator
 
 # Import legacy functions for fallback
 from legacy_api import (
@@ -213,12 +214,29 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
         print(f"DEBUG: Cash value calculation - monthly_contribution: ${monthly_contribution}")
         
         # Generate projections for full 40 years, not just years to retirement
-        cash_value_projection = _generate_cash_value_projections(monthly_contribution, 40)
+        cash_value_projection, projection_params = _generate_cash_value_projections(monthly_contribution, 40, request.portfolio_data)
         
         print(f"DEBUG: Cash value projection generated - {len(cash_value_projection)} years, final value: ${cash_value_projection[-1]['value'] if cash_value_projection else 0:,.0f}")
         
         # Calculate MEC limit for IUL recommendations
         max_monthly_contribution = _calculate_mec_limit(client_age, request.portfolio_data.get("monthly_income", 0), life_insurance_needs.total_need)
+        
+        # Calculate comprehensive portfolio data for chatbot
+        total_assets = request.portfolio_data.get("investments", 0) + request.portfolio_data.get("other_assets", 0) + request.portfolio_data.get("real_estate", 0)
+        total_liabilities = request.portfolio_data.get("debts", 0) + request.portfolio_data.get("mortgage", 0)
+        total_net_worth = total_assets - total_liabilities
+        investable_portfolio = request.portfolio_data.get("investments", 0) + request.portfolio_data.get("other_assets", 0)
+        
+        # Calculate asset allocation in dollars
+        equity_amount = request.portfolio_data.get("equity", 0)
+        fixed_income_amount = request.portfolio_data.get("fixed_income", 0)
+        real_estate_amount = request.portfolio_data.get("real_estate", 0)
+        cash_amount = request.portfolio_data.get("cash", 0)
+        
+        # Calculate account distribution
+        retirement_accounts = request.portfolio_data.get("retirement_accounts", 0)
+        taxable_accounts = request.portfolio_data.get("taxable_accounts", 0)
+        education_accounts = request.portfolio_data.get("education_accounts", 0)
         
         comprehensive_analysis = {
             "life_insurance_needs": life_insurance_needs,
@@ -232,6 +250,26 @@ async def analyze_portfolio_comprehensive(request: PortfolioAnalysisRequest):
             "concentration_risks": ai_analysis.concentration_risks,
             "tax_efficiency": ai_analysis.tax_efficiency,
             "rebalancing_needs": ai_analysis.rebalancing_needs,
+            
+            # Add comprehensive portfolio data for chatbot
+            "total_assets": total_assets,
+            "total_net_worth": total_net_worth,
+            "investable_portfolio": investable_portfolio,
+            "total_liabilities": total_liabilities,
+            "liquid_assets": cash_amount,
+            "asset_allocation_dollars": {
+                "equity": equity_amount,
+                "fixed_income": fixed_income_amount,
+                "real_estate": real_estate_amount,
+                "cash": cash_amount,
+                "alternative": request.portfolio_data.get("alternative", 0)
+            },
+            "asset_allocation_percentages": portfolio_metrics.asset_allocation_percentages,
+            "account_distribution": {
+                "retirement_accounts": retirement_accounts,
+                "taxable_accounts": taxable_accounts,
+                "education_accounts": education_accounts
+            },
             
             # Add cash value projection data for IUL recommendations
             "cash_value_projection": cash_value_projection,
@@ -296,7 +334,8 @@ async def calculate_needs_detailed(request: QuickCalculationRequest):
             "marital_status": request.marital_status,
             "dependents": request.dependents,
             "monthly_income": request.monthly_income,
-            "total_debts": request.mortgage_balance + request.other_debts,
+            "total_liabilities": request.mortgage_balance + request.other_debts,  # FIXED: Use correct field name for life insurance calculator
+            "total_debts": request.mortgage_balance + request.other_debts,  # Keep both for compatibility
             "mortgage_balance": request.mortgage_balance,
             "other_debts": request.other_debts,
             "provide_education": request.provide_education,
@@ -305,6 +344,7 @@ async def calculate_needs_detailed(request: QuickCalculationRequest):
             "education_cost_per_child": request.education_cost_per_child,
             "individual_life": request.individual_life,
             "group_life": request.group_life,
+            "current_life_insurance": request.individual_life + request.group_life,  # Total current coverage
             "cash_value_importance": request.cash_value_importance,
             "permanent_coverage": request.permanent_coverage,
             "income_replacement_years": request.income_replacement_years,
@@ -343,7 +383,7 @@ async def calculate_needs_detailed(request: QuickCalculationRequest):
         )
         
         # Generate projections for full 40 years
-        cash_value_projection = _generate_cash_value_projections(monthly_contribution, 40)
+        cash_value_projection, projection_params = _generate_cash_value_projections(monthly_contribution, 40, portfolio_data)
         
         # Format response to match frontend expectations
         response = {
@@ -404,38 +444,44 @@ async def calculate_needs_quick(request: Dict[str, Any]):
         annual_income = request.get("annual_income", 0)
         dependents = request.get("dependents", 0)
         total_debt = request.get("total_debt", 0)
+        total_assets = request.get("total_assets", 0)  # FIXED: Extract assets from request
         financial_goals = request.get("financial_goals", "basic_protection")
+        marital_status = request.get("marital_status", "Married")
+        provide_education = request.get("provide_education", "no")
         
         print(f"Quick calculation data: age={age}, income=${annual_income:,.0f}, dependents={dependents}, debt=${total_debt:,.0f}, goals={financial_goals}")
         
         # Initialize calculator
         life_insurance_calc = LifeInsuranceCalculator()
         
-        # Prepare portfolio data with defaults
+        # Prepare portfolio data with user-provided values
         portfolio_data = {
             "age": age,
-            "marital_status": "married",  # Default
+            "marital_status": marital_status.lower(),  # Use user input
             "dependents": dependents,
             "monthly_income": annual_income / 12 if annual_income else 0,
-            "total_debts": total_debt,
+            "total_liabilities": total_debt,  # FIXED: Use correct field name for life insurance calculator
+            "total_debts": total_debt,  # Keep both for compatibility
             "mortgage_balance": total_debt * 0.8,  # Assume 80% is mortgage
             "other_debts": total_debt * 0.2,  # Assume 20% is other debt
-            "provide_education": dependents > 0,
+            "liquid_assets": total_assets,  # FIXED: Add liquid assets for debt calculation
+            "savings": total_assets * 0.4,  # Assume 40% of assets are liquid savings
+            "investments": total_assets * 0.6,  # Assume 60% of assets are investments
+            "provide_education": provide_education if isinstance(provide_education, bool) else provide_education.lower() == "yes",  # Handle both bool and string
             "num_children": dependents,
             "education_type": "college",
             "education_cost_per_child": 100000,  # Default college cost
-            "individual_life": 0,
-            "group_life": 0,
+            "individual_life": request.get("individual_life", 0),  # Use user input
+            "group_life": request.get("group_life", 0),  # Use user input
+            "current_life_insurance": request.get("individual_life", 0) + request.get("group_life", 0),  # Total current coverage
             "cash_value_importance": "yes" if "cash_value" in financial_goals else "no",
             "permanent_coverage": "yes" if "permanent" in financial_goals else "no",
-            "income_replacement_years": 10,
+            "income_replacement_years": 10,  # Hardcoded for quick calculator
             "adjust_inflation": True,
             "additional_obligations": 0,
             "funeral_expenses": 8000,
             "legacy_amount": annual_income * 2,  # 2 years of income
             "special_needs": "",
-            "savings": 0,
-            "investments": 0,
             "other_assets": 0,
             "advisor_notes": "Quick calculation via chatbot",
             "health_status": "good",
@@ -463,9 +509,29 @@ async def calculate_needs_quick(request: Dict[str, Any]):
         )
         
         # Generate projections for full 40 years
-        cash_value_projection = _generate_cash_value_projections(monthly_contribution, 40)
+        cash_value_projection, projection_params = _generate_cash_value_projections(monthly_contribution, 40, portfolio_data)
         
-        # Format response to match chatbot expectations
+        # Calculate current coverage (individual + group life insurance)
+        current_coverage = portfolio_data["individual_life"] + portfolio_data["group_life"]
+        
+        # Calculate comprehensive portfolio data for chatbot
+        total_assets = portfolio_data.get("investments", 0) + portfolio_data.get("other_assets", 0) + portfolio_data.get("real_estate", 0)
+        total_liabilities = portfolio_data.get("debts", 0) + portfolio_data.get("mortgage", 0)
+        total_net_worth = total_assets - total_liabilities
+        investable_portfolio = portfolio_data.get("investments", 0) + portfolio_data.get("other_assets", 0)
+        
+        # Calculate asset allocation in dollars
+        equity_amount = portfolio_data.get("equity", 0)
+        fixed_income_amount = portfolio_data.get("fixed_income", 0)
+        real_estate_amount = portfolio_data.get("real_estate", 0)
+        cash_amount = portfolio_data.get("cash", 0)
+        
+        # Calculate account distribution
+        retirement_accounts = portfolio_data.get("retirement_accounts", 0)
+        taxable_accounts = portfolio_data.get("taxable_accounts", 0)
+        education_accounts = portfolio_data.get("education_accounts", 0)
+        
+        # Format response to match chatbot expectations with comprehensive data
         response = {
             "needs_breakdown": {
                 "living_expenses": life_insurance_needs.income_replacement,
@@ -476,6 +542,9 @@ async def calculate_needs_quick(request: Dict[str, Any]):
                 "other": 0
             },
             "recommended_coverage": life_insurance_needs.total_need,
+            "current_coverage": current_coverage,
+            "individual_life": portfolio_data["individual_life"],
+            "group_life": portfolio_data["group_life"],
             "gap": life_insurance_needs.coverage_gap,
             "suggested_policy_type": life_insurance_needs.product_recommendation,
             "duration_years": life_insurance_needs.duration_years,
@@ -486,11 +555,51 @@ async def calculate_needs_quick(request: Dict[str, Any]):
             "recommended_monthly_savings": monthly_contribution,
             "max_monthly_contribution": _calculate_mec_limit(client_age, portfolio_data["monthly_income"], life_insurance_needs.total_need),
             "projection_parameters": {
-                "illustrated_rate": 0.06,
-                "year1_allocation": 0.85,
-                "year2plus_allocation": 0.95,
+                "illustrated_rate": projection_params.get("illustrated_rate", 0.06),
+                "year1_allocation": projection_params.get("year1_allocation", 0.85),
+                "year2plus_allocation": projection_params.get("year2plus_allocation", 0.95),
                 "duration_years": 40,
-                "monthly_contribution": monthly_contribution
+                "monthly_contribution": monthly_contribution,
+                "risk_adjustment": projection_params.get("risk_adjustment", 1.0)
+            },
+            
+            # Add comprehensive portfolio data for chatbot
+            "total_assets": total_assets,
+            "total_net_worth": total_net_worth,
+            "investable_portfolio": investable_portfolio,
+            "total_liabilities": total_liabilities,
+            "liquid_assets": cash_amount,
+            "asset_allocation_dollars": {
+                "equity": equity_amount,
+                "fixed_income": fixed_income_amount,
+                "real_estate": real_estate_amount,
+                "cash": cash_amount,
+                "alternative": portfolio_data.get("alternative", 0)
+            },
+            "asset_allocation_percentages": {
+                "equity": (equity_amount / max(total_assets, 1)) * 100 if total_assets > 0 else 0,
+                "fixed_income": (fixed_income_amount / max(total_assets, 1)) * 100 if total_assets > 0 else 0,
+                "real_estate": (real_estate_amount / max(total_assets, 1)) * 100 if total_assets > 0 else 0,
+                "cash": (cash_amount / max(total_assets, 1)) * 100 if total_assets > 0 else 0,
+                "alternative": (portfolio_data.get("alternative", 0) / max(total_assets, 1)) * 100 if total_assets > 0 else 0
+            },
+            "account_distribution": {
+                "retirement_accounts": retirement_accounts,
+                "taxable_accounts": taxable_accounts,
+                "education_accounts": education_accounts
+            },
+            "portfolio_metrics": {
+                "risk_level": "moderate",  # Default risk level
+                "portfolio_health_score": 68,  # Default health score
+                "risk_score": 55,  # Default risk score
+                "liquidity_ratio": 8.8,  # Default liquidity ratio
+                "asset_allocation_percentages": {
+                    "equity": (equity_amount / max(total_assets, 1)) * 100 if total_assets > 0 else 0,
+                    "fixed_income": (fixed_income_amount / max(total_assets, 1)) * 100 if total_assets > 0 else 0,
+                    "real_estate": (real_estate_amount / max(total_assets, 1)) * 100 if total_assets > 0 else 0,
+                    "cash": (cash_amount / max(total_assets, 1)) * 100 if total_assets > 0 else 0,
+                    "alternative": (portfolio_data.get("alternative", 0) / max(total_assets, 1)) * 100 if total_assets > 0 else 0
+                }
             }
         }
         
@@ -544,31 +653,68 @@ def _calculate_monthly_iul_contribution(total_need: float, monthly_income: float
         print(f"Error calculating monthly IUL contribution: {e}")
         return 600  # Increased fallback from 400
 
-def _generate_cash_value_projections(monthly_contribution: int, duration_years: int) -> List[Dict[str, Any]]:
-    """Generates cash value projections for IUL based on monthly contribution and duration."""
+def _generate_cash_value_projections(monthly_contribution: int, duration_years: int, 
+                                   portfolio_data: Dict[str, Any] = None) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Generates cash value projections for IUL using the proper CashValueCalculator."""
     try:
-        projections = []
-        cash_value = 0
-        illustrated_rate = 0.06  # 6% annual growth
-        year1_allocation = 0.85  # 85% of premium goes to cash value in year 1
-        year2plus_allocation = 0.95  # 95% of premium goes to cash value in subsequent years
-        
-        for year in range(1, duration_years + 1):
-            if year == 1:
-                cash_value += monthly_contribution * 12 * year1_allocation
-            else:
-                cash_value = cash_value * (1 + illustrated_rate) + monthly_contribution * 12 * year2plus_allocation
+        # Use the sophisticated CashValueCalculator if portfolio data is available
+        if portfolio_data:
+            calculator = CashValueCalculator()
             
-            projections.append({
-                "year": year,
-                "value": round(cash_value / 100) * 100  # Round to nearest $100
-            })
-        
-        return projections
+            # Prepare form data for the calculator
+            form_data = {
+                "age": portfolio_data.get("age", 35),
+                "risk_tolerance": portfolio_data.get("risk_tolerance", "moderate"),
+                "monthly_income": portfolio_data.get("monthly_income", 0),
+                "monthly_expenses": portfolio_data.get("monthly_expenses", 0),
+                "dependents": portfolio_data.get("dependents", 0),
+                "total_life_coverage": portfolio_data.get("current_life_insurance", 0)
+            }
+            
+            # Get the proper cash value projection
+            projection_result = calculator.calculate_cash_value_projection(form_data)
+            
+            # Convert to the expected format
+            projections = []
+            for point in projection_result.projection:
+                projections.append({
+                    "year": point.year,
+                    "value": point.value
+                })
+            
+            # Return both projections and parameters
+            return projections, projection_result.projection_parameters
+        else:
+            # Fallback to simple calculation if no portfolio data
+            projections = []
+            cash_value = 0
+            illustrated_rate = 0.06  # 6% annual growth
+            year1_allocation = 0.85  # 85% of premium goes to cash value in year 1
+            year2plus_allocation = 0.95  # 95% of premium goes to cash value in subsequent years
+            
+            for year in range(1, duration_years + 1):
+                if year == 1:
+                    cash_value += monthly_contribution * 12 * year1_allocation
+                else:
+                    cash_value = cash_value * (1 + illustrated_rate) + monthly_contribution * 12 * year2plus_allocation
+                
+                projections.append({
+                    "year": year,
+                    "value": round(cash_value / 100) * 100  # Round to nearest $100
+                })
+            
+            # Return projections with default parameters
+            default_params = {
+                "illustrated_rate": illustrated_rate,
+                "year1_allocation": year1_allocation,
+                "year2plus_allocation": year2plus_allocation,
+                "risk_adjustment": 1.0
+            }
+            return projections, default_params
         
     except Exception as e:
         print(f"Error generating cash value projections: {e}")
-        return []
+        return [], {}
 
 def _calculate_mec_limit(age: int, monthly_income: float, total_need: float) -> int:
     """Calculate MEC (Modified Endowment Contract) limit based on client profile"""

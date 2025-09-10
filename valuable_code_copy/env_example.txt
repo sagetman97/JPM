@@ -1,0 +1,21 @@
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+
+# External Search (Optional)
+TAVILY_API_KEY=your_tavily_api_key_here
+
+# Reranking (Optional)
+COHERE_API_KEY=your_cohere_api_key_here
+
+# LangSmith Monitoring (Optional)
+LANGSMITH_API_KEY=your_langsmith_api_key_here
+LANGSMITH_PROJECT=financial-advisor-assistant
+
+# Qdrant Vector Database
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+
+# Application Settings
+CONFIDENCE_THRESHOLD=0.7
+MAX_TOKENS=4000
+TEMPERATURE=0.1 

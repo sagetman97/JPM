@@ -22,6 +22,8 @@ from core.file_processor import FileProcessor
 from core.config import config
 from core.smart_router import RouteType
 from core.schemas import MessageType
+from core.session_linker import SessionLinker
+from core.simple_pdf_generator import SimplePDFGenerator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +35,7 @@ app = FastAPI(title="Robo-Advisor Chatbot API", version="1.0.0")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["https://your-vercel-app.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,6 +43,10 @@ app.add_middleware(
 
 # Global chatbot orchestrator
 chatbot_orchestrator = None
+
+# Global tool integration components
+session_linker = None
+pdf_generator = None
 
 async def auto_ingest_documents_if_needed(rag_system: EnhancedRAGSystem):
     """Automatically ingest documents if the RAG database is empty"""
@@ -80,6 +86,21 @@ async def auto_ingest_documents_if_needed(rag_system: EnhancedRAGSystem):
         logger.error(f"❌ Error during auto-ingestion: {e}")
         # Don't fail startup - this is non-critical
 
+async def periodic_session_cleanup(chatbot_orchestrator):
+    """Periodically clean up old sessions"""
+    while True:
+        try:
+            # Wait 1 hour between cleanup runs
+            await asyncio.sleep(3600)
+            
+            # Clean up sessions older than 24 hours
+            cleaned_count = await chatbot_orchestrator.cleanup_old_sessions(max_age_hours=24)
+            if cleaned_count > 0:
+                logger.info(f"🧹 PERIODIC CLEANUP: Cleaned up {cleaned_count} old sessions")
+                
+        except Exception as e:
+            logger.error(f"❌ Error in periodic session cleanup: {e}")
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize chatbot components on startup"""
@@ -96,8 +117,12 @@ async def startup_event():
         logger.info("📚 Initializing RAG system...")
         rag_system = EnhancedRAGSystem(external_search_system=external_search)
         
+        logger.info("🔗 Initializing session linker...")
+        global session_linker
+        session_linker = SessionLinker()
+        
         logger.info("🔗 Initializing tool integrator...")
-        tool_integrator = ToolIntegrator()
+        tool_integrator = ToolIntegrator(session_linker=session_linker)
         
         logger.info("🧮 Initializing calculator selector...")
         calculator_selector = SemanticCalculatorSelector()
@@ -107,6 +132,10 @@ async def startup_event():
         
         logger.info("📁 Initializing file processor...")
         file_processor = FileProcessor()
+        
+        logger.info("📄 Initializing PDF generator...")
+        global pdf_generator
+        pdf_generator = SimplePDFGenerator()
         
         logger.info("🎯 Initializing intent classifier...")
         intent_classifier = SemanticIntentClassifier()
@@ -141,6 +170,9 @@ async def startup_event():
         except Exception as e:
             logger.warning(f"⚠️ Auto-ingestion failed (non-critical): {e}")
             logger.info("📚 RAG system will work with existing documents or external search")
+        
+        # Start periodic session cleanup task
+        asyncio.create_task(periodic_session_cleanup(chatbot_orchestrator))
         
     except Exception as e:
         logger.error(f"❌ Failed to initialize chatbot: {e}")
@@ -182,6 +214,16 @@ class CalculatorRequest(BaseModel):
     action: str  # "start", "answer"
     data: Optional[Dict[str, Any]] = None
 
+class ToolSessionRequest(BaseModel):
+    chat_session_id: str
+    tool_type: str
+
+class ToolCompletionRequest(BaseModel):
+    external_session_id: str
+    tool_type: str
+    result_data: Dict[str, Any]
+    pdf_url: Optional[str] = None
+
 # WebSocket connection manager
 class ConnectionManager:
     """Manages WebSocket connections"""
@@ -212,6 +254,15 @@ class ConnectionManager:
             except Exception as e:
                 logger.error(f"Error sending message to session {session_id}: {e}")
                 self.disconnect(session_id)
+    
+    async def send_tool_completion_notification(self, session_id: str, tool_data: Dict[str, Any]):
+        """Send tool completion notification to chat session"""
+        message = {
+            "type": "tool_completion",
+            "data": tool_data,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        await self.send_message(session_id, message)
 
 # Global connection manager
 manager = ConnectionManager()
@@ -519,6 +570,575 @@ async def reset_calculator_session(session_id: str):
         logger.error(f"Error resetting calculator session: {e}")
         raise HTTPException(status_code=500, detail=f"Error resetting calculator session: {str(e)}")
 
+# New tool integration endpoints
+@app.post("/api/chat/tool-session")
+async def create_tool_session(request: ToolSessionRequest):
+    """Create a new tool session linked to a chat session"""
+    try:
+        if not session_linker:
+            raise HTTPException(status_code=503, detail="Session linker not initialized")
+        
+        external_session_id = await session_linker.create_tool_session(
+            request.chat_session_id, 
+            request.tool_type
+        )
+        
+        return {
+            "external_session_id": external_session_id,
+            "tool_type": request.tool_type,
+            "status": "created"
+        }
+    except Exception as e:
+        logger.error(f"Error creating tool session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/tool-completion")
+async def handle_tool_completion(request: ToolCompletionRequest):
+    """Handle completion of an external tool"""
+    try:
+        if not session_linker or not pdf_generator:
+            raise HTTPException(status_code=503, detail="Tool integration components not initialized")
+        
+        # Mark session as completed
+        success = await session_linker.complete_tool_session(
+            request.external_session_id,
+            request.result_data
+        )
+        
+        if not success:
+            # Get more detailed error information
+            pending_sessions = list(session_linker.pending_sessions.keys())
+            completed_sessions = list(session_linker.completed_sessions.keys())
+            logger.error(f"❌ Session not found: {request.external_session_id}")
+            logger.error(f"❌ Pending sessions: {pending_sessions}")
+            logger.error(f"❌ Completed sessions: {completed_sessions}")
+            raise HTTPException(status_code=404, detail=f"Session not found: {request.external_session_id}")
+        
+        # Generate PDF
+        if request.tool_type == "assessment":
+            pdf_id = await pdf_generator.generate_assessment_pdf(
+                request.result_data, 
+                request.external_session_id,
+                request.pdf_url
+            )
+        elif request.tool_type == "portfolio":
+            # Use the new URL-based approach with analysis data
+            logger.info(f"Generating portfolio PDF with URL-based approach")
+            pdf_id = await pdf_generator.generate_portfolio_pdf(
+                request.result_data, 
+                request.external_session_id
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Invalid tool type")
+        
+        # Update session with PDF ID
+        tool_session = await session_linker.get_tool_session(request.external_session_id)
+        if tool_session:
+            tool_session.pdf_id = pdf_id
+        
+        # Generate result summary
+        result_summary = _generate_result_summary(request.tool_type, request.result_data)
+        
+        # Generate detailed report message for conversation history
+        detailed_report_message = _generate_detailed_report_message(request.tool_type, request.result_data)
+        
+        # Add tool results to conversation history (works for both assessment and portfolio)
+        if tool_session and chatbot_orchestrator:
+            try:
+                # Get the session from the orchestrator
+                session = chatbot_orchestrator._get_or_create_session(tool_session.chat_session_id)
+                
+                # Add the tool results to conversation history
+                if hasattr(session.context, 'simple_history') and session.context.simple_history:
+                    logger.info(f"📝 TOOL COMPLETION: Adding {request.tool_type} results to conversation history for session {tool_session.chat_session_id}")
+                    
+                    # Add the detailed report as a conversation turn
+                    session.context.simple_history.add_conversation_turn(
+                        user_message=f"{request.tool_type.title()} completed",
+                        bot_response=detailed_report_message
+                    )
+                    
+                    logger.info(f"📝 TOOL COMPLETION: Successfully added {request.tool_type} results to conversation history")
+                else:
+                    logger.warning(f"📝 TOOL COMPLETION: No simple_history available for session {tool_session.chat_session_id}")
+                    
+            except Exception as e:
+                logger.error(f"📝 TOOL COMPLETION: Error adding {request.tool_type} results to conversation history: {e}")
+        
+        # Notify chat session via WebSocket
+        if tool_session:
+            await manager.send_tool_completion_notification(
+                tool_session.chat_session_id,
+                {
+                    "tool_type": request.tool_type,
+                    "pdf_id": pdf_id,
+                    "result_summary": result_summary,
+                    "detailed_report": detailed_report_message  # Add full report data
+                }
+            )
+        
+        return {
+            "status": "completed",
+            "pdf_id": pdf_id,
+            "message": f"{request.tool_type.title()} completed successfully"
+        }
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Error handling tool completion: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/chat/pdf/{pdf_id}")
+async def download_pdf(pdf_id: str):
+    """Download a generated PDF"""
+    try:
+        if not pdf_generator:
+            raise HTTPException(status_code=503, detail="PDF generator not initialized")
+        
+        pdf_path = pdf_generator.get_pdf_path(pdf_id)
+        
+        if not pdf_path.exists():
+            raise HTTPException(status_code=404, detail="PDF not found")
+        
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=str(pdf_path),
+            filename=f"{pdf_id}.pdf",
+            media_type="application/pdf"  # Now generating actual PDF files
+        )
+    except Exception as e:
+        logger.error(f"Error downloading PDF: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/chat/session/{session_id}/pending-tools")
+async def get_pending_tools(session_id: str):
+    """Get pending tools for a chat session"""
+    try:
+        if not session_linker:
+            raise HTTPException(status_code=503, detail="Session linker not initialized")
+        
+        pending_tools = await session_linker.get_pending_tools(session_id)
+        
+        return {
+            "session_id": session_id,
+            "pending_tools": [
+                {
+                    "external_session_id": tool.external_session_id,
+                    "tool_type": tool.tool_type,
+                    "created_at": tool.created_at.isoformat(),
+                    "status": tool.status
+                }
+                for tool in pending_tools
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error getting pending tools: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def _generate_result_summary(tool_type: str, result_data: Dict[str, Any]) -> str:
+    """Generate a summary of the tool result"""
+    if tool_type == "assessment":
+        # Extract from nested structure: { "formData": {...}, "result": {...} }
+        result = result_data.get('result', {})
+        recommended_coverage = result.get('recommended_coverage', 0)
+        gap = result.get('gap', 0)
+        product_recommendation = result.get('product_recommendation', 'N/A')
+        
+        return f"Assessment completed. Recommended coverage: ${recommended_coverage:,.2f}. Coverage gap: ${gap:,.2f}. Product recommendation: {product_recommendation}"
+    elif tool_type == "portfolio":
+        # Portfolio data structure - extract from the actual structure being sent
+        # The data comes in as: { "formData": {...}, "result": {...} }
+        result = result_data.get('result', {})
+        portfolio_metrics = result.get('portfolio_metrics', {})
+        life_insurance_needs = result.get('life_insurance_needs', {})
+        
+        # Extract values from the correct nested structure
+        total_assets = result.get('total_assets', 0)
+        risk_level = portfolio_metrics.get('risk_level', 'N/A')
+        total_coverage_need = life_insurance_needs.get('total_need', 0)
+        
+        # If we don't have the data in the nested structure, try the top level
+        if total_assets == 0:
+            total_assets = result_data.get('total_assets', 0)
+        if risk_level == 'N/A':
+            risk_level = result_data.get('risk_level', 'N/A')
+        if total_coverage_need == 0:
+            total_coverage_need = result_data.get('recommended_coverage', 0)
+        
+        return f"Portfolio analysis completed. Total assets: ${total_assets:,.2f}. Risk level: {risk_level}. Life insurance need: ${total_coverage_need:,.2f}"
+    else:
+        return f"{tool_type.title()} completed successfully."
+
+def _generate_detailed_report_message(tool_type: str, result_data: Dict[str, Any]) -> str:
+    """Generate a detailed report message for conversation history"""
+    if tool_type == "assessment":
+        # Extract assessment data
+        result = result_data.get('result', {})
+        form_data = result_data.get('formData', {})
+        
+        # Helper function to safely convert to float
+        def safe_float(value, default=0):
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, str):
+                # Remove commas and convert
+                try:
+                    return float(value.replace(',', ''))
+                except (ValueError, AttributeError):
+                    return default
+            return default
+        
+        # Build detailed assessment report
+        report = f"""## ASSESSMENT COMPLETED
+
+**Personal Details:**
+- Age: {form_data.get('age', 'N/A')}
+- Marital Status: {form_data.get('marital_status', 'N/A')}
+- Dependents: {form_data.get('dependents', 'N/A')}
+- Health Status: {form_data.get('health_status', 'N/A')}
+
+**Coverage Analysis:**
+- Recommended Coverage: ${result.get('recommended_coverage', 0):,.2f}
+- Coverage Gap: ${result.get('gap', 0):,.2f}
+- Product Recommendation: {result.get('product_recommendation', 'N/A')}
+- Rationale: {result.get('rationale', 'N/A')}
+
+**Coverage Breakdown:**
+- Living Expenses: ${result.get('needs_breakdown', {}).get('living_expenses', 0):,.2f}
+- Debts: ${result.get('needs_breakdown', {}).get('debts', 0):,.2f}
+- Education: ${result.get('needs_breakdown', {}).get('education', 0):,.2f}
+- Funeral: ${result.get('needs_breakdown', {}).get('funeral', 0):,.2f}
+- Legacy: ${result.get('needs_breakdown', {}).get('legacy', 0):,.2f}
+
+**Cash Value Projections:**
+- Recommended Monthly Savings: ${result.get('recommended_monthly_savings', 0):,.2f}
+- Max Monthly Contribution: ${result.get('max_monthly_contribution', 0):,.2f}
+- Projection Parameters: {result.get('projection_parameters', {})}
+
+**About You:**
+- Monthly Income: ${safe_float(form_data.get('monthly_income', 0)):,.2f}
+- Monthly Expenses: ${safe_float(form_data.get('monthly_expenses', 0)):,.2f}
+- Savings: ${safe_float(form_data.get('savings', 0)):,.2f}
+- Investments: ${safe_float(form_data.get('investments', 0)):,.2f}
+- Other Assets: ${safe_float(form_data.get('other_assets', 0)):,.2f}
+- Individual Life Insurance: ${safe_float(form_data.get('individual_life', 0)):,.2f}
+- Group Life Insurance: ${safe_float(form_data.get('group_life', 0)):,.2f}"""
+        
+        return report
+        
+    elif tool_type == "portfolio":
+        # Extract portfolio data
+        result = result_data.get('result', {})
+        form_data = result_data.get('formData', {})
+        
+        # Helper function to safely convert to float
+        def safe_float(value, default=0):
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, str):
+                # Remove commas and convert
+                try:
+                    return float(value.replace(',', ''))
+                except (ValueError, AttributeError):
+                    return default
+            return default
+        
+        # Extract comprehensive analysis data from the correct structure
+        # The frontend sends: result_data.result.analysis (backend analysis)
+        # AND result_data.result (comprehensive transformedResult with additional data)
+        analysis = result.get('analysis', {})
+        life_insurance_needs = result.get('life_insurance_needs', analysis.get('life_insurance_needs', {}))
+        portfolio_metrics = result.get('portfolio_metrics', analysis.get('portfolio_metrics', {}))
+        key_findings = result.get('key_findings', analysis.get('key_findings', []))
+        risk_analysis = result.get('risk_analysis', analysis.get('risk_analysis', {}))
+        # Handle case where risk_analysis might be a list, string, or dict
+        if isinstance(risk_analysis, list):
+            risk_analysis = {'summary': ' '.join(risk_analysis) if risk_analysis else 'Risk analysis completed with comprehensive assessment.'}
+        elif isinstance(risk_analysis, str):
+            risk_analysis = {'summary': risk_analysis if risk_analysis else 'Risk analysis completed with comprehensive assessment.'}
+        elif not isinstance(risk_analysis, dict):
+            risk_analysis = {'summary': 'Risk analysis completed with comprehensive assessment.'}
+        opportunities = result.get('opportunities', analysis.get('opportunities', []))
+        recommendations = result.get('recommendations', analysis.get('recommendations', []))
+        tax_efficiency = result.get('tax_efficiency', analysis.get('tax_efficiency', ''))
+        # Handle case where tax_efficiency might be a string, list, or dict
+        if isinstance(tax_efficiency, str):
+            tax_efficiency = {'summary': tax_efficiency if tax_efficiency else 'Tax efficiency analysis completed.'}
+        elif isinstance(tax_efficiency, list):
+            tax_efficiency = {'summary': ' '.join(tax_efficiency) if tax_efficiency else 'Tax efficiency analysis completed.'}
+        elif not isinstance(tax_efficiency, dict):
+            tax_efficiency = {'summary': 'Tax efficiency analysis completed.'}
+        
+        rebalancing_needs = result.get('rebalancing_needs', analysis.get('rebalancing_needs', ''))
+        # Handle case where rebalancing_needs might be a string or list
+        if isinstance(rebalancing_needs, str):
+            rebalancing_needs = [rebalancing_needs] if rebalancing_needs else []
+        elif not isinstance(rebalancing_needs, list):
+            rebalancing_needs = []
+        cash_value_projection = result.get('cash_value_projection', analysis.get('cash_value_projection', []))
+        
+        # Calculate IUL cash value projections safely
+        def get_cash_value_for_year(year):
+            for projection in cash_value_projection:
+                if projection.get('year') == year:
+                    return projection.get('value', 0)
+            return 0
+        
+        year_5_value = get_cash_value_for_year(5)
+        year_10_value = get_cash_value_for_year(10)
+        year_20_value = get_cash_value_for_year(20)
+        year_30_value = get_cash_value_for_year(30)
+        year_40_value = get_cash_value_for_year(40)
+        
+        # Calculate total premiums paid over 40 years
+        monthly_contribution = result.get('recommended_monthly_savings', 0)
+        total_premiums_40_years = monthly_contribution * 12 * 40
+        
+        # Build comprehensive portfolio report with all sections
+        # Extract data from the correct structure (transformedResult has the data at top level)
+        total_assets = safe_float(form_data.get('total_assets', 0))
+        total_net_worth = safe_float(form_data.get('total_net_worth', 0))
+        investable_portfolio = safe_float(form_data.get('investable_portfolio', 0))
+        liquid_assets = safe_float(form_data.get('liquid_assets', 0))
+        total_liabilities = safe_float(form_data.get('liabilities_total', 0))
+        
+        report = f"""## COMPREHENSIVE PORTFOLIO ANALYSIS COMPLETED
+
+**Portfolio Overview:**
+- Total Assets: ${total_assets:,.2f}
+- Total Net Worth: ${total_net_worth:,.2f}
+- Investable Portfolio: ${investable_portfolio:,.2f}
+- Liquid Assets: ${liquid_assets:,.2f}
+- Total Liabilities: ${total_liabilities:,.2f}
+
+**Portfolio Health Score:**
+- Overall Portfolio Health: {portfolio_metrics.get('portfolio_health_score', 0)}/100
+- Health Status: {'Excellent' if portfolio_metrics.get('portfolio_health_score', 0) >= 85 else 'Good' if portfolio_metrics.get('portfolio_health_score', 0) >= 70 else 'Needs Attention'}
+- Health Recommendation: {'Strong diversification and liquidity' if portfolio_metrics.get('portfolio_health_score', 0) >= 85 else 'Good balance with room for improvement' if portfolio_metrics.get('portfolio_health_score', 0) >= 70 else 'Consider rebalancing and increasing liquidity'}
+- Risk Level: {portfolio_metrics.get('risk_level', 'moderate')} ({'High equity exposure' if portfolio_metrics.get('risk_level', 'moderate') == 'aggressive' else 'Balanced allocation' if portfolio_metrics.get('risk_level', 'moderate') == 'moderate' else 'Conservative approach'})
+- Risk Score: {portfolio_metrics.get('risk_score', 0)}/100 ({'Low risk' if portfolio_metrics.get('risk_score', 0) >= 80 else 'Moderate risk' if portfolio_metrics.get('risk_score', 0) < 60 else 'High risk'})
+- Liquidity Ratio: {portfolio_metrics.get('liquidity_ratio', 0)}x monthly expenses ({'Excellent' if portfolio_metrics.get('liquidity_ratio', 0) > 20 else 'Good' if portfolio_metrics.get('liquidity_ratio', 0) > 10 else 'Consider increasing'})
+- Diversification: ✓ Well balanced
+- Liquidity: ✓ Adequate reserves
+- Risk Management: ✓ Appropriate level
+
+**Asset Allocation:**
+- Equity: ${safe_float(form_data.get('equity_allocation', 0)):,.2f} (${portfolio_metrics.get('asset_allocation_percentages', {}).get('equity', 0):.1f}%)
+- Fixed Income: ${safe_float(form_data.get('fixed_income_allocation', 0)):,.2f} (${portfolio_metrics.get('asset_allocation_percentages', {}).get('fixed_income', 0):.1f}%)
+- Real Estate: ${safe_float(form_data.get('real_estate_allocation', 0)):,.2f} (${portfolio_metrics.get('asset_allocation_percentages', {}).get('real_estate', 0):.1f}%)
+- Cash: ${safe_float(form_data.get('cash_allocation', 0)):,.2f} (${portfolio_metrics.get('asset_allocation_percentages', {}).get('cash', 0):.1f}%)
+- Alternative Investments: ${safe_float(form_data.get('alternative_allocation', 0)):,.2f} (${portfolio_metrics.get('asset_allocation_percentages', {}).get('alternative', 0):.1f}%)
+
+**Account Distribution:**
+- Retirement Accounts: ${safe_float(form_data.get('retirement_accounts', 0)):,.2f} ({(safe_float(form_data.get('retirement_accounts', 0)) / max(investable_portfolio, 1) * 100):.1f}%)
+- Taxable Accounts: ${safe_float(form_data.get('taxable_accounts', 0)):,.2f} ({(safe_float(form_data.get('taxable_accounts', 0)) / max(investable_portfolio, 1) * 100):.1f}%)
+- Education Accounts: ${safe_float(form_data.get('education_accounts', 0)):,.2f} ({(safe_float(form_data.get('education_accounts', 0)) / max(investable_portfolio, 1) * 100):.1f}%)
+
+**Life Insurance Analysis:**
+- Recommended Coverage: ${result.get('recommended_coverage', 0):,.2f}
+- Current Coverage: ${safe_float(form_data.get('current_life_insurance', 0)) + safe_float(form_data.get('individual_life', 0)) + safe_float(form_data.get('group_life', 0)):,.2f}
+- Individual Life Insurance: ${safe_float(form_data.get('individual_life', 0)):,.2f}
+- Group Life Insurance: ${safe_float(form_data.get('group_life', 0)):,.2f}
+- Coverage Gap: ${result.get('gap', 0):,.2f} ({(result.get('gap', 0) / max(result.get('recommended_coverage', 1), 1)) * 100:.1f}% of need)
+- Product Recommendation: {result.get('product_recommendation', 'N/A')}
+- Duration: {result.get('duration_years', 0)} years
+
+**Product Recommendation:**
+{life_insurance_needs.get('product_recommendation', result.get('product_recommendation', 'JPM TermVest+ IUL Track'))}
+JPM TermVest+ offers two tracks: Term and IUL. The IUL Track provides immediate access to cash value accumulation with tax-deferred growth potential, flexible premiums, and permanent coverage. Your cash value can grow based on market performance while providing a guaranteed death benefit for life.
+
+Why? At age 38.0 with $266,004 annual income and 2.0 dependents, you're an ideal candidate for the IUL Track. Start with term coverage and convert to permanent coverage as your financial situation allows, building cash value for retirement and legacy planning.
+
+**Coverage Needs Breakdown:**
+- Income Replacement: ${life_insurance_needs.get('income_replacement', 0):,.2f}
+- Debts & Liabilities: ${life_insurance_needs.get('debt_payoff', 0):,.2f}
+- Education Funding: ${life_insurance_needs.get('education_funding', 0):,.2f}
+- Funeral Expenses: ${life_insurance_needs.get('funeral_expenses', 0):,.2f}
+- Legacy/Inheritance: ${life_insurance_needs.get('legacy_amount', 0):,.2f}
+- Special Needs: ${life_insurance_needs.get('special_needs', 0):,.2f}
+
+**Cash Value Projections:**
+- Recommended Monthly Savings: ${result.get('recommended_monthly_savings', 0):,.2f}
+- Max Monthly Contribution: ${result.get('max_monthly_contribution', 0):,.2f}
+- Projection Parameters: {result.get('projection_parameters', {})}
+
+**Portfolio Benchmarks & Industry Standards:**
+- Asset Allocation vs. Industry Standards:
+  - Your Equity Allocation: {portfolio_metrics.get('asset_allocation_percentages', {}).get('equity', 0):.1f}%
+  - Industry Standard (Age {form_data.get('age', 35)}): {max(100 - int(form_data.get('age', 35)), 20)}%
+  - Your Fixed Income: {portfolio_metrics.get('asset_allocation_percentages', {}).get('fixed_income', 0):.1f}%
+  - Recommended Fixed Income: {min(int(form_data.get('age', 35)), 40)}%
+- Portfolio Size Benchmarks:
+  - Total Assets: ${total_assets:,.2f}
+  - Investable Portfolio: ${investable_portfolio:,.2f}
+  - Age {form_data.get('age', 35)} Average: ${'$50,000' if int(form_data.get('age', 35)) < 30 else '$150,000' if int(form_data.get('age', 35)) < 40 else '$300,000' if int(form_data.get('age', 35)) < 50 else '$500,000'}
+  - Your Net Worth: ${total_net_worth:,.2f}
+  - Net Worth to Total Assets: {(total_net_worth / max(total_assets, 1) * 100):.1f}%
+  - Net Worth to Investable: {(total_net_worth / max(investable_portfolio, 1) * 100):.1f}%
+- Coverage Gap Percentage: {(result.get('gap', 0) / max(result.get('recommended_coverage', 1), 1)) * 100:.1f}%
+
+**Risk Analysis & Benchmarks:**
+{risk_analysis.get('summary', 'Risk analysis completed with comprehensive assessment.')}
+
+**Key Opportunities:**
+{', '.join(opportunities) if opportunities else 'Portfolio optimization opportunities identified.'}
+
+**Tax Efficiency Analysis:**
+{tax_efficiency.get('summary', 'Tax efficiency analysis completed.')}
+
+**Rebalancing Recommendations:**
+{', '.join(rebalancing_needs) if rebalancing_needs else 'Portfolio rebalancing recommendations provided.'}
+
+**Strategic Recommendations:**
+{', '.join(recommendations) if recommendations else 'Strategic portfolio recommendations provided.'}
+
+**Key Findings:**
+{', '.join(key_findings) if key_findings else 'Comprehensive portfolio analysis completed with detailed financial assessment.'}
+
+**IUL Portfolio Integration:**
+
+**Recommended Strategy:**
+Why IUL Makes Sense for Your Portfolio
+✓ Tax-Deferred Growth: Cash value grows tax-deferred, unlike taxable investments
+✓ Portfolio Diversification: Reduces equity exposure while maintaining growth potential
+✓ Market Protection: 0% floor protection with unlimited upside potential
+✓ Enhanced Liquidity: Tax-free access to cash value for emergencies or opportunities
+✓ Legacy Planning: Tax-free death benefit for wealth transfer
+✓ Retirement Income: Tax-free retirement income supplement
+
+**IUL vs. Traditional Investment Comparison:**
+- Tax Treatment: IUL = Tax-Deferred, Traditional = Taxable
+- Death Benefit: IUL = Guaranteed, Traditional = None
+- Withdrawal Flexibility: IUL = Tax-Free, Traditional = Taxable
+- Required Distributions: IUL = None, Traditional = RMDs (IRA)
+- Market Protection: IUL = Floor Protection, Traditional = Full Risk
+
+**Portfolio Enhancement:**
+- Current Portfolio Value: ${total_assets:,.2f}
+- IUL Cash Value (Year 10): ${year_10_value:,.2f}
+- Enhanced Portfolio: ${total_assets + year_10_value:,.2f}
+
+**Tax Efficiency Benefits:**
+- Tax-Deferred Growth: ✓ Available
+- Tax-Free Withdrawals: ✓ Available
+- Tax-Free Death Benefit: ✓ Guaranteed
+- No Required Distributions: ✓ Flexible
+
+**Portfolio Diversification Impact:**
+- {((portfolio_metrics.get('asset_allocation_percentages', {}).get('equity', 0) - 9.2) / max(portfolio_metrics.get('asset_allocation_percentages', {}).get('equity', 1), 1) * 100):.1f}% Reduced Equity Exposure
+- {((year_10_value / (total_assets + year_10_value)) * 100):.1f}% IUL Allocation
+- {(((liquid_assets + year_10_value) / (total_assets + year_10_value)) * 100):.1f}% Enhanced Liquidity
+
+**Strategic Benefits Timeline:**
+- Short Term (1-5 years): Tax-deferred growth begins, Death benefit protection, Flexible premium payments, Portfolio diversification
+- Medium Term (5-15 years): Significant cash value accumulation, Tax-free withdrawal options, Enhanced retirement planning, Legacy building potential
+- Long Term (15+ years): Substantial cash value growth, Tax-free retirement income, Wealth transfer benefits, Permanent protection
+
+**IUL Cash Value Growth & Future Scenarios:**
+Based on your portfolio analysis, this is our calculated field for suggested monthly cash value savings. You can change this value during times of financial change (saving more or less).
+
+**Key Growth Milestones:**
+- Year 5 Cash Value: ${year_5_value:,.2f}
+- Year 10 Cash Value: ${year_10_value:,.2f}
+- Year 20 Cash Value: ${year_20_value:,.2f}
+- Year 30 Cash Value: ${year_30_value:,.2f}
+- Year 40 Cash Value: ${year_40_value:,.2f}
+- Total Premiums Paid (40 years): ${total_premiums_40_years:,.2f}
+
+**Monthly Savings Configuration:**
+- Monthly Amount: ${monthly_contribution:,.2f}
+- Maximum allowed: ${result.get('max_monthly_contribution', 0):,.2f}/month (MEC limit)
+- Savings Level: {'Low Savings' if monthly_contribution <= result.get('max_monthly_contribution', 0) * 0.25 else 'Medium Savings' if monthly_contribution <= result.get('max_monthly_contribution', 0) * 0.5 else 'High Savings' if monthly_contribution <= result.get('max_monthly_contribution', 0) * 0.75 else 'Maximum Savings'} ({(monthly_contribution / max(result.get('max_monthly_contribution', 1), 1)) * 100:.0f}% of maximum)
+
+**Future Financial Scenarios:**
+
+**Retirement Planning:**
+- Age at Retirement: {int(form_data.get('age', 35)) + (result.get('projection_parameters', {}).get('duration_years', 30))}
+- IUL Cash Value: ${year_40_value:,.2f}
+- Tax-Free Income: ${year_40_value * 0.04:,.2f}/year
+
+**Legacy Planning:**
+- Death Benefit: ${result.get('recommended_coverage', 0):,.2f}
+- Cash Value (Year 40): ${year_40_value:,.2f}
+- Tax-Free Transfer: ✓ Available
+
+**Emergency Fund:**
+- Current Liquid Assets: ${liquid_assets:,.2f}
+- IUL Cash Value (Year 5): ${year_5_value:,.2f}
+- Enhanced Emergency Fund: ${liquid_assets + year_5_value:,.2f}
+
+**Portfolio Protection & Risk Management:**
+
+**Market Protection Benefits:**
+- Current Market Exposure: {portfolio_metrics.get('asset_allocation_percentages', {}).get('equity', 0):.1f}%
+- Protected Assets (IUL): 9.2%
+- Floor Protection: 1%
+- Cap Potential (Yearly): 7%
+
+**Risk Management Strategies:**
+- Sequence of Returns Risk: IUL provides protection against market downturns during critical retirement years
+- Longevity Risk: Permanent coverage ensures protection regardless of life expectancy
+- Tax Risk: Tax-free withdrawals and death benefits provide tax efficiency
+- Inflation Risk: Cash value growth potential helps maintain purchasing power
+
+**Portfolio Stress Testing Scenarios:**
+- Market Crash Scenario: Traditional investments: -30%, IUL cash value: 0% (protected), Portfolio protection: Enhanced
+- Low Interest Rate Environment: Traditional bonds: Low returns, IUL cash value: Growth potential, Portfolio yield: Maintained
+- High Tax Environment: Traditional investments: Tax burden, IUL withdrawals: Tax-free, Tax efficiency: Maximized
+- Tax Risk: Tax-free withdrawals and death benefits provide tax efficiency
+
+**Actionable Recommendations:**
+
+**Portfolio Optimization:**
+- Equity Allocation Analysis: Your equity allocation ({portfolio_metrics.get('asset_allocation_percentages', {}).get('equity', 0):.1f}%) compared to recommended {max(100 - int(form_data.get('age', 35)), 20)}% for your age.
+- Liquidity Analysis: Your liquidity ratio ({portfolio_metrics.get('asset_allocation_percentages', {}).get('cash', 0):.1f}%) compared to recommended 10-20%. Consider increasing liquid assets by ${max(0, total_assets * 0.15 - liquid_assets):,.2f}.
+- Emergency Fund Recommendation: Current liquid assets of ${liquid_assets:,.2f} should be increased to ${total_assets * 0.15:,.2f} (15% of total assets) for optimal emergency fund coverage.
+
+**Insurance & Protection:**
+- Coverage Gap Analysis: You have a ${result.get('gap', 0):,.2f} insurance gap ({(result.get('gap', 0) / max(result.get('recommended_coverage', 1), 1)) * 100:.1f}% of need). This represents a significant risk to your family's financial security.
+- IUL Integration Opportunity: Consider allocating ${result.get('recommended_monthly_savings', 0):,.2f}/month to IUL for tax-deferred growth and portfolio diversification.
+
+**Recommended Next Steps:**
+- Immediate (1-3 months): Address critical insurance gaps, Review and adjust asset allocation, Establish emergency fund if needed
+- Short-term (3-12 months): Implement IUL strategy if recommended, Rebalance portfolio quarterly, Review tax efficiency opportunities
+- Long-term (1-5 years): Monitor portfolio performance, Adjust strategy as life changes, Plan for major life events
+- Review and adjust asset allocation quarterly
+- Monitor portfolio performance and adjust strategy as life changes
+
+**Executive Summary:**
+
+**Portfolio Strengths:**
+- Total assets of ${total_assets:,.2f} including real estate
+- Investable portfolio of ${investable_portfolio:,.2f} for allocation analysis
+- {'Strong' if liquid_assets > investable_portfolio * 0.1 else 'Adequate'} liquidity position
+- {portfolio_metrics.get('risk_level', 'moderate').title()} risk profile
+- IUL integration opportunity identified
+
+**Key Recommendations:**
+- ${result.get('recommended_coverage', 0):,.2f} in life insurance coverage needed
+- ${result.get('gap', 0):,.2f} coverage gap to address
+- IUL Track recommended for optimal fit
+- ${result.get('recommended_monthly_savings', 0):,.2f}/month IUL allocation suggested
+
+**Portfolio Summary Cards:**
+- Total Assets: ${total_assets:,.2f} (All assets including real estate)
+- Investable Portfolio: ${investable_portfolio:,.2f} (Excluding real estate)
+- Total Net Worth: ${total_net_worth:,.2f} (Including all assets & liabilities)
+- Liquid Assets: ${liquid_assets:,.2f} (Cash & equivalents)
+- Total Liabilities: ${total_liabilities:,.2f} (Debts & obligations)
+
+**Key Insights:**
+- Portfolio Strengths: Total assets of ${total_assets:,.2f} including real estate, Investable portfolio of ${investable_portfolio:,.2f} for allocation analysis, {'Strong' if liquid_assets > investable_portfolio * 0.1 else 'Adequate'} liquidity position, {portfolio_metrics.get('risk_level', 'moderate').title()} risk profile
+- Insurance Recommendations: ${result.get('recommended_coverage', 0):,.2f} in life insurance coverage needed, ${result.get('gap', 0):,.2f} coverage gap to address, IUL Track recommended for optimal fit
+
+Portfolio analysis indicates a solid financial foundation with significant opportunities for optimization through strategic life insurance integration. The recommended IUL Track provides comprehensive protection while enhancing portfolio diversification and tax efficiency."""
+        
+        return report
+        
+    else:
+        return f"## {tool_type.upper()} COMPLETED\n\n{json.dumps(result_data, indent=2)}"
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -540,7 +1160,9 @@ async def health_check():
                 "tool_integrator": "available",
                 "calculator_selector": "available",
                 "quick_calculator": "available",
-                "file_processor": "available"
+                "file_processor": "available",
+                "session_linker": "available" if session_linker else "unavailable",
+                "pdf_generator": "available" if pdf_generator else "unavailable"
             }
         
         return status

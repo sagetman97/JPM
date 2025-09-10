@@ -116,12 +116,12 @@ class PortfolioCalculator:
             # Calculate total investable assets (excluding real estate for allocation purposes)
             total_investable = equity + fixed_income + cash + alternative
         
-        # Calculate asset allocation percentages (based on investable assets, not total portfolio)
+        # Calculate all asset allocation percentages based on total assets for consistency
         asset_allocation_percentages = self._calculate_allocation_percentages(
-            equity, fixed_income, cash, alternative, total_investable
+            equity, fixed_income, cash, alternative, total_assets
         )
         
-        # Add real estate allocation percentage (based on total assets including real estate)
+        # Add real estate allocation percentage (also based on total assets)
         if total_assets > 0:
             real_estate_percentage = round((real_estate / total_assets) * 100, 1)
             asset_allocation_percentages["real_estate"] = real_estate_percentage
@@ -162,7 +162,7 @@ class PortfolioCalculator:
         industry_benchmarks = self._get_industry_benchmarks(age, total_assets)
         
         return PortfolioMetrics(
-            total_assets=total_investable,
+            total_assets=total_assets,  # Use actual total assets, not investable
             asset_allocation_percentages=asset_allocation_percentages,
             portfolio_health_score=portfolio_health_score,
             risk_level=risk_level,

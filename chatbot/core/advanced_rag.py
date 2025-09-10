@@ -9,6 +9,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from .schemas import RAGResult, ConversationContext, IntentResult
 from .config import config
+from .universal_context_selector import UniversalContextSelector, ContextSelectionResult
 # REMOVED: Complex context-aware imports that were causing issues
 # from .context_manager import ContextAwareQueryEnhancer
 # from .context_aware_retriever import ContextAwareDocumentRetriever
@@ -57,6 +58,35 @@ class DocumentProcessor:
             return self.process_text_file(file_path)
         except Exception as e:
             logger.error(f"Error processing PDF file {file_path}: {e}")
+            return []
+    
+    def process_docx_file(self, file_path: str) -> List[Dict[str, Any]]:
+        """Process DOCX files and create chunks"""
+        
+        try:
+            from docx import Document
+            
+            chunks = []
+            doc = Document(file_path)
+            
+            # Extract text from all paragraphs
+            full_text = []
+            for paragraph in doc.paragraphs:
+                if paragraph.text.strip():
+                    full_text.append(paragraph.text.strip())
+            
+            # Join all text and create chunks
+            content = '\n'.join(full_text)
+            if content.strip():
+                chunks = self._create_chunks(content, file_path)
+            
+            return chunks
+            
+        except ImportError:
+            logger.warning("python-docx not available, treating DOCX as text file")
+            return self.process_text_file(file_path)
+        except Exception as e:
+            logger.error(f"Error processing DOCX file {file_path}: {e}")
             return []
     
     def _create_chunks(self, content: str, source: str) -> List[Dict[str, Any]]:
@@ -144,28 +174,45 @@ class SemanticQueryExpander:
     
     def _build_expansion_prompt(self, query: str, context: ConversationContext) -> str:
         """Build prompt for semantic query expansion focused on RAG document retrieval"""
+        
+        # Extract conversation context for better expansion
+        conversation_context = ""
+        if hasattr(context, 'simple_history') and context.simple_history:
+            try:
+                recent_turns = context.simple_history.get_conversation_turns()
+                if recent_turns:
+                    # Get the most recent assistant response for context
+                    for turn in reversed(recent_turns[-3:]):
+                        if turn.get('role') == 'assistant':
+                            recent_content = turn.get('content', '') or turn.get('assistant_response', '')
+                            if recent_content:
+                                conversation_context = f"Recent discussion: {recent_content[:200]}..."
+                                break
+            except Exception as e:
+                logger.warning(f"Could not extract conversation context: {e}")
+        
         return f"""
-        Expand this financial query into 3-4 related queries to find comprehensive information in a knowledge base.
+        Expand this financial query into 2-3 closely related queries to find comprehensive information in a knowledge base.
         
         **Original Query:** "{query}"
         **User Knowledge Level:** {context.knowledge_level.value}
-        **Context:** {context.current_topic or 'Financial Planning'}
+        **Current Topic:** {context.current_topic or 'Financial Planning'}
+        {f"**Recent Discussion:** {conversation_context}" if conversation_context else ""}
         
-        **Focus Areas for RAG Document Retrieval:**
-        1. **Core Concept:** Main financial topic or product
-        2. **Related Concepts:** Closely related financial topics
-        3. **Calculation Methods:** Different approaches to the same problem
-        4. **Product Types:** Variations of the financial product
-        
-        **IMPORTANT:** 
-        - Focus on finding documents in a knowledge base, NOT external search
-        - Keep queries similar to the original to ensure relevance
-        - Don't create queries that are too different from the original
-        - Aim for comprehensive coverage, not broad expansion
+        **IMPORTANT RULES:**
+        - Keep expansions VERY similar to the original query
+        - Focus on the SAME specific topic mentioned in the conversation context
+        - If the query mentions a specific product (like IUL), expand ONLY around that product
+        - Don't create generic expansions - stay focused on the specific topic
+        - Use the conversation context to make expansions more specific and relevant
+        - Aim for focused coverage, not broad expansion
         
         **Example Expansions:**
         - Original: "term life insurance rates"
-        - Expansion: ["term life insurance rates", "term life insurance pricing", "term life insurance cost factors", "term life insurance premium calculation"]
+        - Expansion: ["term life insurance rates", "term life insurance pricing", "term life insurance cost factors"]
+        
+        - Original: "Can you expand on this?" (with IUL context)
+        - Expansion: ["IUL cash value growth", "IUL benefits and features", "IUL caps and floors"]
         
         **Return only the expanded queries, one per line, no explanations:**
         """
@@ -374,6 +421,11 @@ class EnhancedRAGSystem:
         self.multi_query_retriever = MultiQueryRetriever(self.qdrant_client)
         self.document_processor = DocumentProcessor()
         
+        # Initialize universal context selector for follow-up support
+        from .follow_up_detector import FollowUpDetector
+        follow_up_detector = FollowUpDetector(self.llm)
+        self.context_selector = UniversalContextSelector(follow_up_detector)
+        
         # Initialize intelligent context-aware query enhancer
         # self.query_enhancer = ContextAwareQueryEnhancer() # REMOVED: Simple context system
         
@@ -454,21 +506,40 @@ class EnhancedRAGSystem:
         try:
             logger.info(f"🔍 RAG SYSTEM: Starting semantic response generation for query: '{query[:100]}...'")
             
-            # NEW: Intelligently enhance query with conversation context for better RAG retrieval
-            # This system now understands semantic relationships and follow-up questions
-            # try: # REMOVED: Simple context system
-            #     enhanced_query = await self.query_enhancer.enhance_query_for_rag(query, context) # REMOVED: Simple context system
-            #     if enhanced_query != query: # REMOVED: Simple context system
-            #         logger.info(f"🔍 RAG SYSTEM: Query intelligently enhanced: '{query[:50]}...' -> '{enhanced_query[:100]}...'") # REMOVED: Simple context system
-            #         query = enhanced_query  # Use enhanced query for retrieval # REMOVED: Simple context system
-            # except Exception as e: # REMOVED: Simple context system
-            #     logger.error(f"🔍 RAG SYSTEM: Error in query enhancement: {e}") # REMOVED: Simple context system
-            #     # Continue with original query if enhancement fails # REMOVED: Simple context system
+            # NEW: Use Universal Context Selector for intelligent context handling
+            try:
+                context_result = await self.context_selector.get_relevant_context(query, context, intent_result)
+                logger.info(f"🔍 RAG SYSTEM: Context selection result: {context_result.context_type}")
+            except Exception as e:
+                logger.error(f"🔍 RAG SYSTEM: Error in context selection: {e}")
+                # Create a fallback context result
+                context_result = ContextSelectionResult(
+                    context_type="standard",
+                    conversation_context=context,
+                    intent_result=intent_result,
+                    context_summary="Context selection failed - using standard context"
+                )
+            
+            # Enhance query based on context selection
+            enhanced_query = query
+            try:
+                if context_result.context_type == "follow_up" and context_result.relevant_turn:
+                    # For follow-up questions, enhance the query with conversation context
+                    enhanced_query = await self._enhance_query_with_conversation_context(query, context_result)
+                    logger.info(f"🔍 RAG SYSTEM: Enhanced follow-up query: '{query[:50]}...' -> '{enhanced_query[:100]}...'")
+                elif context_result.context_type == "structured_data" and context_result.relevant_turn:
+                    # For structured data context, enhance query with specific details
+                    enhanced_query = await self._enhance_query_with_structured_data(query, context_result)
+                    logger.info(f"🔍 RAG SYSTEM: Enhanced structured data query: '{query[:50]}...' -> '{enhanced_query[:100]}...'")
+            except Exception as e:
+                logger.error(f"🔍 RAG SYSTEM: Error enhancing query: {e}")
+                # Use original query if enhancement fails
+                enhanced_query = query
             
             # CRITICAL FIX: Use MultiQueryRetriever for comprehensive document retrieval
             # This ensures we get all relevant documents in a single call instead of multiple calls
             logger.info("🔍 RAG SYSTEM: Using MultiQueryRetriever for comprehensive document retrieval")
-            raw_documents = await self.multi_query_retriever.retrieve_documents([query], context, k=15)
+            raw_documents = await self.multi_query_retriever.retrieve_documents([enhanced_query], context, k=15)
             
             # SIMPLIFIED: Use original simple context system for RAG (restore what was working)
             # Remove complex conversation_memory integration that was causing issues
@@ -709,61 +780,20 @@ class EnhancedRAGSystem:
         if context.current_topic:
             conversation_context += f"**Current Conversation Focus:** {context.current_topic}\n"
         
-        if context.semantic_themes:
-            recent_themes = context.semantic_themes[-5:]
-            conversation_context += f"**Recent Topics Discussed:** {', '.join(recent_themes)}\n"
-            
-            if len(recent_themes) > 0:
-                conversation_context += f"**Most Recent Topic:** {recent_themes[-1]}\n"
-        
         if context.user_goals:
             recent_goals = context.user_goals[-3:]
             conversation_context += f"**Your Goals:** {', '.join(recent_goals)}\n"
         
         logger.info("🔍 RAG SYSTEM: Using original simple context system for response generation")
         
-        # Detect if this is a follow-up question with enhanced patterns
-        follow_up_indicators = [
-            'go deeper', 'tell me more', 'explain', 'how does', 'what about',
-            'can you', 'could you', 'expand on', 'elaborate', 'dive into',
-            'restate', 'repeat', 'say that again', 'clarify', 'what do you mean',
-            'i don\'t understand', 'confused', 'lost me', 'help me understand',
-            'more about', 'more on', 'further', 'additional', 'extra'
-        ]
-        
-        is_follow_up = any(indicator in query.lower() for indicator in follow_up_indicators)
-        
-        # Also check for context continuation indicators
-        context_continuation_indicators = [
-            'this', 'that', 'it', 'they', 'them', 'those', 'these',
-            'the', 'a', 'an', 'some', 'any', 'all', 'both', 'either', 'neither'
-        ]
-        
-        has_context_continuation = any(indicator in query.lower() for indicator in context_continuation_indicators)
-        is_follow_up = is_follow_up or has_context_continuation
-        
         # Build comprehensive context-aware instructions
+        # Note: Follow-up detection is now handled by UniversalContextSelector
         context_instructions = ""
-        if is_follow_up and context.semantic_themes:
-            # For follow-up questions, emphasize using previous context
-            most_recent_theme = context.semantic_themes[-1]
-            recent_themes = context.semantic_themes[-3:]  # Last 3 themes for context
-            
-            context_instructions = f"""
-**IMPORTANT - This is a follow-up question!** 
-- The user is asking for more details about: {most_recent_theme}
-- Recent conversation context: {', '.join(recent_themes)}
-- Connect your answer to what we discussed previously
-- Reference the previous topic naturally in your response
-- Build upon the knowledge we've already established
-- If the user asks about a component (like "cash value"), relate it to the main topic we discussed
-"""
-        elif context.current_topic and context.current_topic != 'General':
+        if context.current_topic and context.current_topic != 'General':
             # For related questions, maintain conversation flow
             context_instructions = f"""
 **Conversation Context:**
 - We're discussing: {context.current_topic}
-- Recent themes: {', '.join(context.semantic_themes[-3:]) if context.semantic_themes else 'None'}
 - Maintain the flow and build on what we've covered
 - Reference relevant previous topics when helpful
 """
@@ -792,7 +822,12 @@ You are a knowledgeable financial advisor assistant having a natural conversatio
 8. **Maintain conversation flow** - consider the conversation context when appropriate
 9. **Build on previous topics** - reference recent themes if relevant to the current question
 10. **For follow-up questions**, connect your answer to what we discussed previously
-11. **Be conversational** - like ChatGPT, maintain context without being robotic
+11. **For vague follow-up questions** like "tell me more", focus on the most important and interesting aspects
+12. **Provide specific examples** and real-world applications when relevant
+13. **Explain the reasoning** behind recommendations and calculations
+14. **Use conversational language** that builds on the established relationship
+15. **Address potential concerns** or questions the user might have
+16. **Be conversational** - like ChatGPT, maintain context without being robotic
 
 **Response Format:**
 - Start with a direct answer to the question
@@ -889,7 +924,6 @@ You are a knowledgeable financial advisor assistant having a natural conversatio
         
         **Conversation Context:**
         - Current Topic: {context.current_topic or 'General'}
-        - Recent Themes: {', '.join(context.semantic_themes[-3:]) if context.semantic_themes else 'None'}
         - User Goals: {', '.join(context.user_goals[-2:]) if context.user_goals else 'None'}
         - Knowledge Level: {context.knowledge_level.value if hasattr(context, 'knowledge_level') else 'Unknown'}
         
@@ -995,6 +1029,8 @@ You are a knowledgeable financial advisor assistant having a natural conversatio
                 chunks = self.document_processor.process_text_file(str(file_path))
             elif file_extension == '.pdf':
                 chunks = self.document_processor.process_pdf_file(str(file_path))
+            elif file_extension == '.docx':
+                chunks = self.document_processor.process_docx_file(str(file_path))
             else:
                 logger.warning(f"Unsupported file type: {file_extension}")
                 return []
@@ -1372,4 +1408,110 @@ You are a knowledgeable financial advisor assistant having a natural conversatio
                 
         except Exception as e:
             logger.error(f"Error getting search sources: {e}")
-            return "Current market information and company-specific data from external sources" 
+            return "Current market information and company-specific data from external sources"
+    
+    async def _enhance_query_with_conversation_context(self, query: str, context_result: ContextSelectionResult) -> str:
+        """Enhance query with conversation context for follow-up questions"""
+        try:
+            if not context_result.relevant_turn:
+                return query
+            
+            # Extract key information from the relevant conversation turn
+            content = context_result.relevant_turn.get('content', '') or context_result.relevant_turn.get('assistant_response', '')
+            referenced_item = context_result.referenced_item or 'previous discussion'
+            
+            logger.info(f"🔍 QUERY ENHANCEMENT: Content being analyzed: {content[:200]}...")
+            logger.info(f"🔍 QUERY ENHANCEMENT: Content length: {len(content)}")
+            
+            # Extract specific topics from the previous response for better context
+            specific_topics = self._extract_specific_topics(content)
+            logger.info(f"🔍 QUERY ENHANCEMENT: Extracted topics: {specific_topics}")
+            
+            # Build enhanced query that includes specific context
+            if specific_topics:
+                # Keep original query but add focused context about the specific topic
+                enhanced_query = f"{query} (about {', '.join(specific_topics)})"
+                logger.info(f"🔍 QUERY ENHANCEMENT: Using specific topics: {', '.join(specific_topics)}")
+            else:
+                # Fallback to original query with minimal context
+                enhanced_query = f"{query} (follow-up question)"
+                logger.info(f"🔍 QUERY ENHANCEMENT: Using referenced_item: {referenced_item}")
+            
+            return enhanced_query.strip()
+            
+        except Exception as e:
+            logger.error(f"Error enhancing query with conversation context: {e}")
+            return query
+    
+    def _extract_specific_topics(self, content: str) -> List[str]:
+        """Extract specific financial topics from content for better context"""
+        try:
+            logger.info(f"🔍 TOPIC EXTRACTION: Analyzing content for specific topics: {content[:100]}...")
+            
+            # Look for specific financial products and concepts
+            specific_keywords = [
+                'IUL', 'Indexed Universal Life', 'Universal Life',
+                'Term Life', 'Whole Life', 'Variable Life',
+                'cash value', 'death benefit', 'premium',
+                'caps and floors', 'index performance', 'tax-deferred',
+                'permanent life insurance', 'life insurance policy'
+            ]
+            
+            found_topics = []
+            content_lower = content.lower()
+            
+            for keyword in specific_keywords:
+                if keyword.lower() in content_lower:
+                    found_topics.append(keyword)
+                    logger.info(f"🔍 TOPIC EXTRACTION: Found keyword: {keyword}")
+            
+            logger.info(f"🔍 TOPIC EXTRACTION: Found topics: {found_topics}")
+            
+            # Return unique topics, prioritizing more specific ones
+            unique_topics = list(dict.fromkeys(found_topics))
+            
+            # Prioritize specific products over general terms
+            priority_order = ['IUL', 'Indexed Universal Life', 'Universal Life', 'Term Life', 'Whole Life', 'Variable Life']
+            prioritized_topics = []
+            
+            for priority in priority_order:
+                for topic in unique_topics:
+                    if priority.lower() in topic.lower():
+                        prioritized_topics.append(topic)
+                        break
+            
+            # Add remaining topics
+            for topic in unique_topics:
+                if topic not in prioritized_topics:
+                    prioritized_topics.append(topic)
+            
+            result = prioritized_topics[:3]  # Limit to top 3 most relevant topics
+            logger.info(f"🔍 TOPIC EXTRACTION: Final extracted topics: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error extracting specific topics: {e}")
+            return []
+    
+    async def _enhance_query_with_structured_data(self, query: str, context_result: ContextSelectionResult) -> str:
+        """Enhance query with structured data context"""
+        try:
+            if not context_result.relevant_turn:
+                return query
+            
+            # Extract key metrics from structured data
+            content = context_result.relevant_turn.get('content', '') or context_result.relevant_turn.get('assistant_response', '')
+            
+            # Build enhanced query that includes structured data context
+            enhanced_query = f"""
+            {query}
+            
+            Context: This question relates to recent analysis results.
+            Previous analysis: {content[:300]}{'...' if len(content) > 300 else ''}
+            """
+            
+            return enhanced_query.strip()
+            
+        except Exception as e:
+            logger.error(f"Error enhancing query with structured data: {e}")
+            return query 

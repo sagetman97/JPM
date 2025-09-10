@@ -27,7 +27,6 @@ async def test_follow_up_intent_classification():
     context = ConversationContext(
         session_id="test_session",
         knowledge_level=KnowledgeLevel.INTERMEDIATE,
-        semantic_themes=["IUL", "cash value", "life insurance"],
         current_topic="Indexed Universal Life Insurance",
         user_goals=["understand IUL benefits", "learn about cash value"],
         client_context=ClientContext.PERSONAL,

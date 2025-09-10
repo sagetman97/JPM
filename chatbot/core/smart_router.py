@@ -41,22 +41,22 @@ class SemanticSmartRouter:
                 return await self._route_to_selected_calculator(intent, context)
             
             # ONLY route to calculator if intent ACTUALLY requires calculation
-            elif intent.intent.value in ["insurance_needs_calculation", "portfolio_integration_analysis"]:
-                logger.info("🎯 SMART ROUTER: Routing to calculator (intent.value check)")
+            elif intent.intent in [IntentCategory.INSURANCE_NEEDS_CALCULATION, IntentCategory.PORTFOLIO_INTEGRATION_ANALYSIS]:
+                logger.info("🎯 SMART ROUTER: Routing to calculator (enum check)")
                 return await self._route_to_calculator(intent, context)
             
             # Check if it's a knowledge-seeking query
-            elif intent.intent.value in ["life_insurance_education", "product_comparison", "scenario_analysis"]:
+            elif intent.intent in [IntentCategory.LIFE_INSURANCE_EDUCATION, IntentCategory.PRODUCT_COMPARISON, IntentCategory.SCENARIO_ANALYSIS]:
                 logger.info("🎯 SMART ROUTER: Routing to knowledge sources")
                 return await self._route_to_knowledge_sources(intent, context)
             
             # Check if it's client assessment support
-            elif intent.intent.value == "client_assessment_support":
+            elif intent.intent == IntentCategory.CLIENT_ASSESSMENT_SUPPORT:
                 logger.info("🎯 SMART ROUTER: Routing to client assessment")
                 return await self._route_to_client_assessment(intent, context)
             
             # Check if it's portfolio integration analysis
-            elif intent.intent.value == "portfolio_integration_analysis":
+            elif intent.intent == IntentCategory.PORTFOLIO_INTEGRATION_ANALYSIS:
                 logger.info("🎯 SMART ROUTER: Routing to portfolio analysis")
                 return await self._route_to_portfolio_analysis(intent, context)
             
@@ -64,6 +64,21 @@ class SemanticSmartRouter:
             elif intent.intent == IntentCategory.CONVERSATION_MANAGEMENT:
                 logger.info("🎯 SMART ROUTER: Routing to conversation management")
                 return await self._route_to_conversation_management(intent, context)
+            
+            # NEW: Handle report questions
+            elif intent.intent == IntentCategory.REPORT_QUESTION:
+                logger.info("🎯 SMART ROUTER: Routing to report question handler")
+                return await self._route_to_report_question(intent, context)
+            
+            # NEW: Handle quick calculator follow-up questions
+            elif intent.intent == IntentCategory.QUICK_CALCULATOR_FOLLOW_UP:
+                logger.info("🎯 SMART ROUTER: Routing to quick calculator follow-up handler")
+                return await self._route_to_quick_calculator_follow_up(intent, context)
+            
+            # NEW: Handle file analysis questions
+            elif intent.intent == IntentCategory.FILE_ANALYSIS:
+                logger.info("🎯 SMART ROUTER: Routing to file analysis")
+                return await self._route_to_file_analysis(intent, context)
             
             # Default fallback - but check for conversation management keywords first
             else:
@@ -110,7 +125,7 @@ class SemanticSmartRouter:
                     route_type=RouteType.EXTERNAL_TOOL,
                     confidence=intent.confidence,
                     reasoning=f"User needs detailed assessment: {intent.reasoning}",
-                    tool_type="detailed_assessment",
+                    tool_type="assessment",
                     session_id=context.session_id
                 )
             
@@ -120,7 +135,7 @@ class SemanticSmartRouter:
                     route_type=RouteType.EXTERNAL_TOOL,
                     confidence=intent.confidence,
                     reasoning=f"User needs portfolio analysis: {intent.reasoning}",
-                    tool_type="portfolio_analysis",
+                    tool_type="portfolio",
                     session_id=context.session_id
                 )
             
@@ -312,6 +327,51 @@ class SemanticSmartRouter:
             logger.error(f"🎯 SMART ROUTER: Full traceback: {traceback.format_exc()}")
             return self._get_error_routing_decision(intent, context, f"Conversation management routing failed: {str(e)}")
     
+    async def _route_to_report_question(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
+        """Route report questions to the report context system"""
+        try:
+            logger.info("🎯 SMART ROUTER: Creating report question routing decision")
+            
+            return RoutingDecision(
+                route_type=RouteType.BASE_LLM,  # Will be handled by orchestrator with report context
+                confidence=intent.confidence,
+                reasoning=f"User is asking about existing report: {intent.reasoning}",
+                tool_type=None,
+                session_id=context.session_id,
+                metadata={
+                    "report_question": True,
+                    "requires_report_context": True
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"🎯 SMART ROUTER: Error routing to report question: {e}")
+            import traceback
+            logger.error(f"🎯 SMART ROUTER: Full traceback: {traceback.format_exc()}")
+    
+    async def _route_to_quick_calculator_follow_up(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
+        """Route quick calculator follow-up questions to BASE_LLM with calculator context"""
+        try:
+            logger.info("🎯 SMART ROUTER: Creating quick calculator follow-up routing decision")
+            
+            return RoutingDecision(
+                route_type=RouteType.BASE_LLM,  # Will be handled by orchestrator with calculator context
+                confidence=intent.confidence,
+                reasoning=f"User is asking about quick calculator results: {intent.reasoning}",
+                tool_type=None,
+                session_id=context.session_id,
+                metadata={
+                    "quick_calculator_follow_up": True,
+                    "requires_calculator_context": True
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"🎯 SMART ROUTER: Error routing to quick calculator follow-up: {e}")
+            import traceback
+            logger.error(f"🎯 SMART ROUTER: Full traceback: {traceback.format_exc()}")
+            return self._get_error_routing_decision(intent, context, f"Report question routing failed: {str(e)}")
+    
     async def _route_to_fallback(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
         """Route to base LLM fallback"""
         
@@ -339,16 +399,40 @@ class SemanticSmartRouter:
                 "fallback": True
             }
         )
+    
+    async def _route_to_file_analysis(self, intent: IntentResult, context: ConversationContext) -> RoutingDecision:
+        """Route file analysis questions"""
+        
+        try:
+            logger.info("🎯 SMART ROUTER: Creating file analysis routing decision")
+            
+            # File analysis should use external tool (file processor)
+            return RoutingDecision(
+                route_type=RouteType.EXTERNAL_TOOL,
+                confidence=intent.confidence,
+                reasoning=f"File analysis question: {intent.reasoning}",
+                metadata={
+                    "is_file_analysis": True,
+                    "tool_type": "file_processor",
+                    "query": intent.semantic_goal
+                }
+            )
+        except Exception as e:
+            logger.error(f"🎯 SMART ROUTER: Error routing to file analysis: {e}")
+            return self._get_error_routing_decision(intent, context, f"File analysis routing failed: {str(e)}")
 
 class ToolIntegrator:
     """Handles integration with external tools and calculators"""
     
-    def __init__(self):
+    def __init__(self, session_linker=None):
+        self.session_linker = session_linker
         self.tool_urls = {
             "detailed_assessment": "/assessment",
             "client_assessment": "/assessment",  # Alias for client_assessment
             "portfolio_analysis": "/portfolio-assessment",
-            "quick_calculator": "/quick-calculator"
+            "quick_calculator": "/quick-calculator",
+            "assessment": "/assessment",  # New unified mapping
+            "portfolio": "/portfolio-assessment"  # New unified mapping
         }
         
         self.tool_descriptions = {
@@ -375,11 +459,25 @@ class ToolIntegrator:
                 "description": "Fast 5-question estimate for immediate planning needs",
                 "estimated_time": "2-3 minutes",
                 "output": "Immediate coverage estimate with basic recommendations"
+            },
+            "assessment": {
+                "name": "Client Assessment Tool",
+                "description": "Comprehensive life insurance needs assessment",
+                "estimated_time": "15-20 minutes",
+                "output": "Detailed PDF report with recommendations",
+                "icon": "📋"
+            },
+            "portfolio": {
+                "name": "Portfolio Analysis Tool", 
+                "description": "Complete portfolio analysis and recommendations",
+                "estimated_time": "10-15 minutes",
+                "output": "Portfolio analysis PDF report",
+                "icon": "📊"
             }
         }
     
     async def route_to_external_tool(self, tool_type: str, context: ConversationContext) -> ToolResponse:
-        """Route user to external tool with context preservation"""
+        """Route user to external tool with session linking"""
         
         try:
             if tool_type not in self.tool_urls:
@@ -387,33 +485,57 @@ class ToolIntegrator:
             
             tool_info = self.tool_descriptions[tool_type]
             
+            # Create tool session if session linker is available
+            external_session_id = None
+            if self.session_linker:
+                try:
+                    external_session_id = await self.session_linker.create_tool_session(
+                        context.session_id, 
+                        tool_type
+                    )
+                    logger.info(f"🔗 Created tool session: {external_session_id} for chat session: {context.session_id}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to create tool session: {e}")
+                    print(f"Warning: Could not create tool session: {e}")
+            else:
+                logger.warning("⚠️ Session linker not available - using base session ID")
+            
             # Generate deep link with session context
-            deep_link = self._generate_deep_link(tool_type, context)
+            deep_link = self._generate_deep_link(tool_type, context, external_session_id)
             
             # Create routing message
-            message = self._generate_tool_routing_message(tool_type, context, tool_info)
+            message = self._generate_tool_routing_message(tool_type, context, tool_info, deep_link)
             
             return ToolResponse(
                 tool_type=tool_type,
                 action="redirect_to_external_tool",
                 url=deep_link,
                 message=message,
-                session_id=context.session_id
+                session_id=external_session_id or context.session_id
             )
             
         except Exception as e:
-            logger.error(f"Error routing to external tool {tool_type}: {e}")
-            raise
+            print(f"Error routing to external tool {tool_type}: {e}")
+            # Return error response instead of raising
+            return ToolResponse(
+                tool_type=tool_type,
+                action="error",
+                message=f"Failed to open {tool_type} tool: {str(e)}",
+                session_id=context.session_id
+            )
     
-    def _generate_deep_link(self, tool_type: str, context: ConversationContext) -> str:
+    def _generate_deep_link(self, tool_type: str, context: ConversationContext, external_session_id: str = None) -> str:
         """Generate deep link to external tool with context"""
         
         try:
             base_url = self.tool_urls[tool_type]
             
+            # Use external_session_id if available, otherwise fall back to context.session_id
+            session_id_to_use = external_session_id or context.session_id
+            
             # Add context parameters
             context_params = {
-                "session_id": context.session_id,
+                "session_id": session_id_to_use,
                 "knowledge_level": context.knowledge_level.value,
                 "source": "robo_advisor_chatbot",
                 "timestamp": context.created_at.isoformat()
@@ -425,6 +547,9 @@ class ToolIntegrator:
             
             deep_link = f"{base_url}?{query_string}"
             
+            logger.info(f"🔗 Generated deep link: {deep_link}")
+            logger.info(f"🔗 Using session ID: {session_id_to_use} (external: {external_session_id}, context: {context.session_id})")
+            
             return deep_link
             
         except Exception as e:
@@ -435,7 +560,8 @@ class ToolIntegrator:
         self, 
         tool_type: str, 
         context: ConversationContext, 
-        tool_info: Dict[str, Any]
+        tool_info: Dict[str, Any],
+        deep_link: str
     ) -> str:
         """Generate message explaining tool routing"""
         
@@ -455,7 +581,7 @@ class ToolIntegrator:
                 **After completion:**
                 Your report will be sent back to this chat where you can ask questions and get additional guidance.
                 
-                [Click here to start the assessment]({self.tool_urls[tool_type]})
+                [Click here to start the assessment]({deep_link})
                 """
             
             elif tool_type == "portfolio_analysis":
@@ -473,7 +599,28 @@ class ToolIntegrator:
                 **After completion:**
                 Your portfolio analysis report will be sent back to this chat for further discussion and Q&A.
                 
-                [Click here to start the analysis]({self.tool_urls[tool_type]})
+                [Click here to start the analysis]({deep_link})
+                """
+            
+            elif tool_type in ["assessment", "portfolio"]:
+                icon = tool_info.get('icon', '🔧')
+                return f"""
+                {icon} **Opening {tool_info['name']}**
+                
+                I'm opening a dedicated tool for this analysis. This form will open in a new tab and will take approximately {tool_info['estimated_time']}.
+                
+                **What happens next:**
+                1. 📝 Complete the detailed assessment
+                2. 📊 Your data will be analyzed  
+                3. 📄 **You'll receive a downloadable PDF report**
+                4. 🤖 **The report will appear here in our chat automatically**
+                5. 💬 Ask me any follow-up questions about your results
+                
+                **Output:** {tool_info['output']}
+                
+                🔗 **The tool will open in a new tab** - please complete it there and return here for your results and any questions!
+                
+                **Fallback Link:** If the tool doesn't open automatically, [click here to open {tool_info['name']}]({deep_link})
                 """
             
             else:
@@ -485,7 +632,7 @@ class ToolIntegrator:
                 **What you'll get:**
                 • {tool_info['output']}
                 
-                [Click here to start]({self.tool_urls[tool_type]})
+                [Click here to start]({deep_link})
                 """
                 
         except Exception as e:

@@ -36,7 +36,6 @@ async def test_rag_system():
         context = ConversationContext(
             session_id="test_rag_session",
             knowledge_level=KnowledgeLevel.BEGINNER,
-            semantic_themes=["life insurance", "coverage"],
             user_goals=["understand insurance needs"],
             current_topic="Insurance Planning"
         )

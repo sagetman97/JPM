@@ -44,7 +44,7 @@ class SearchQualityEvaluator:
         Evaluate the quality and relevance of this search result:
         
         **Query:** "{query}"
-        **Search Result:** "{result.get('content', '')}"
+        **Search Result:** "{result.get('content', '') or result.get('assistant_response', '')}"
         
         **Evaluation Criteria:**
             1. **Relevance**: How well does this result answer the query?
@@ -96,16 +96,16 @@ class SearchQualityEvaluator:
             try:
                 score = float(score_text)
                 # Apply minimum thresholds for valuable current information
-                if self._contains_current_financial_info(result.get('content', ''), query):
+                if self._contains_current_financial_info(result.get('content', '') or result.get('assistant_response', ''), query):
                     score = max(score, 0.65)  # Minimum 0.65 for current financial info
                 return max(0.0, min(1.0, score))  # Clamp between 0 and 1
             except ValueError:
                 # If parsing fails, return default score
-                return 0.65 if self._contains_current_financial_info(result.get('content', ''), query) else 0.6
+                return 0.65 if self._contains_current_financial_info(result.get('content', '') or result.get('assistant_response', ''), query) else 0.6
                 
         except Exception as e:
             logger.error(f"Error evaluating single result: {e}")
-            return 0.65 if self._contains_current_financial_info(result.get('content', ''), query) else 0.5
+            return 0.65 if self._contains_current_financial_info(result.get('content', '') or result.get('assistant_response', ''), query) else 0.5
     
     def _contains_current_financial_info(self, content: str, query: str) -> bool:
         """Check if content contains current financial information that should get higher scores"""
@@ -439,7 +439,7 @@ class ExternalSearchSystem:
             
             for i, result in enumerate(results[:3]):  # Top 3 results
                 response += f"**{result.get('title', 'Source')}**\n"
-                response += f"{result.get('content', '')[:200]}...\n\n"
+                response += f"{(result.get('content', '') or result.get('assistant_response', ''))[:200]}...\n\n"
                 
                 if result.get('url'):
                     response += f"Source: {result.get('url')}\n\n"

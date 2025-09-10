@@ -164,7 +164,8 @@ class ConversationMemory:
     
     def understand_follow_up(self, query: str) -> Tuple[bool, Optional[str], List[str]]:
         """
-        Understand if a query is a follow-up and what it refers to.
+        DEPRECATED: This method is deprecated in favor of the unified FollowUpDetector.
+        This method is kept for backward compatibility but should not be used.
         
         Returns:
             - is_follow_up: bool
@@ -172,7 +173,9 @@ class ConversationMemory:
             - related_concepts: List[str] - concepts related to the follow-up
         """
         try:
-            # Check for follow-up indicators
+            logger.warning("🧠 MEMORY: Using deprecated understand_follow_up method. Use FollowUpDetector instead.")
+            
+            # Simple fallback implementation for backward compatibility
             follow_up_indicators = [
                 'go deeper', 'tell me more', 'explain', 'how does', 'what about',
                 'can you', 'could you', 'expand on', 'elaborate', 'dive into',
@@ -200,11 +203,11 @@ class ConversationMemory:
                 
                 related_concepts = [item.content for item in topic_memories[:5]]
             
-            logger.info(f"🧠 MEMORY: Follow-up detected - refers to: {main_topic}, concepts: {related_concepts}")
+            logger.info(f"🧠 MEMORY: Follow-up detected (deprecated method) - refers to: {main_topic}, concepts: {related_concepts}")
             return True, main_topic, related_concepts
             
         except Exception as e:
-            logger.error(f"🧠 MEMORY: Error understanding follow-up: {e}")
+            logger.error(f"🧠 MEMORY: Error understanding follow-up (deprecated method): {e}")
             return False, None, []
     
     def add_conversation_turn(self, user_query: str, system_response: str, 

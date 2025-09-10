@@ -91,8 +91,18 @@ class LifeInsuranceCalculator:
             
             # Calculate needs components with realistic caps
             income_replacement = self._calculate_income_replacement(annual_income, age)
-            debt_payoff = self._parse_number(portfolio_data.get("total_liabilities", 0))
-            education_funding = self._calculate_education_funding(dependents, age)
+            # FIXED: Use proper debt calculation that takes liquid assets into account
+            total_liabilities = self._parse_number(portfolio_data.get("total_liabilities", 0))
+            liquid_assets = self._parse_number(portfolio_data.get("liquid_assets", 0))
+            debt_payoff = self._calculate_debt_payoff(total_liabilities, liquid_assets)
+            
+            # Only calculate education funding if user wants to provide for education
+            provide_education = portfolio_data.get("provide_education", False)
+            if provide_education:
+                education_funding = self._calculate_education_funding(dependents, age)
+            else:
+                education_funding = 0
+                
             funeral_expenses = self._parse_number(portfolio_data.get("funeral_expenses", 0)) or self.funeral_cost
             legacy_amount = self._calculate_legacy_amount(annual_income, age)
             special_needs = self._calculate_special_needs(portfolio_data.get("special_needs", ""))
@@ -101,6 +111,8 @@ class LifeInsuranceCalculator:
             print(f"DEBUG: Calculated needs - income_replacement: ${income_replacement:,.2f}, debt_payoff: ${debt_payoff:,.2f}")
             print(f"DEBUG: Calculated needs - education_funding: ${education_funding:,.2f}, funeral_expenses: ${funeral_expenses:,.2f}")
             print(f"DEBUG: Calculated needs - legacy_amount: ${legacy_amount:,.2f}, special_needs: ${special_needs:,.2f}")
+            print(f"DEBUG: Debt calculation - total_liabilities: ${total_liabilities:,.2f}, liquid_assets: ${liquid_assets:,.2f}, debt_payoff: ${debt_payoff:,.2f}")
+            print(f"DEBUG: Debt calculation - available_for_debt: ${liquid_assets * 0.25:,.2f} (25% of liquid assets)")
             
             # Apply realistic caps to individual components
             max_realistic_need = annual_income * self.max_need_multiplier
@@ -114,14 +126,23 @@ class LifeInsuranceCalculator:
             # Cap legacy amount at 3x annual income
             legacy_amount = min(legacy_amount, annual_income * 3)
             
-            # Calculate total need
-            total_need = income_replacement + debt_payoff + education_funding + funeral_expenses + legacy_amount + special_needs
+            # Round individual components first
+            income_replacement_rounded = round(income_replacement)
+            debt_payoff_rounded = round(debt_payoff)
+            education_funding_rounded = round(education_funding)
+            funeral_expenses_rounded = round(funeral_expenses)
+            legacy_amount_rounded = round(legacy_amount)
+            special_needs_rounded = round(special_needs)
+            
+            # Calculate total need from rounded components
+            total_need = income_replacement_rounded + debt_payoff_rounded + education_funding_rounded + funeral_expenses_rounded + legacy_amount_rounded + special_needs_rounded
             
             # Final cap on total need
             total_need = min(total_need, max_realistic_need)
             
             # Calculate coverage gap
-            total_current_coverage = current_coverage + individual_life + group_life
+            # current_coverage should already be the total of individual + group life insurance
+            total_current_coverage = current_coverage
             coverage_gap = max(0, total_need - total_current_coverage)
             
             # Determine product recommendation
@@ -134,15 +155,15 @@ class LifeInsuranceCalculator:
             rationale = self._generate_rationale(age, annual_income, dependents, total_need, product_recommendation)
             
             return LifeInsuranceNeeds(
-                total_need=round(total_need),
-                income_replacement=round(income_replacement),
-                debt_payoff=round(debt_payoff),
-                education_funding=round(education_funding),
-                funeral_expenses=round(funeral_expenses),
-                legacy_amount=round(legacy_amount),
-                special_needs=round(special_needs),
+                total_need=total_need,
+                income_replacement=income_replacement_rounded,
+                debt_payoff=debt_payoff_rounded,
+                education_funding=education_funding_rounded,
+                funeral_expenses=funeral_expenses_rounded,
+                legacy_amount=legacy_amount_rounded,
+                special_needs=special_needs_rounded,
                 coverage_gap=round(coverage_gap),
-                recommended_coverage=round(total_need),
+                recommended_coverage=total_need,
                 duration_years=duration_years,
                 product_recommendation=product_recommendation,
                 rationale=rationale
@@ -190,16 +211,25 @@ class LifeInsuranceCalculator:
         return min(calculated_replacement, annual_income * 12)
     
     def _calculate_debt_payoff(self, liabilities_total: float, liquid_assets: float) -> float:
-        """Calculate debt payoff needs"""
+        """Calculate debt payoff needs - realistic approach"""
         if liabilities_total <= 0:
             return 0
         
-        # If liquid assets can cover debts, no additional coverage needed
-        if liquid_assets >= liabilities_total:
-            return 0
+        # In real life insurance planning, we don't assume all assets will be liquidated
+        # Instead, we consider that assets serve other purposes (retirement, emergency fund, etc.)
+        # and life insurance should provide debt coverage even when assets exist
         
-        # Return the gap between debts and liquid assets
-        return max(0, liabilities_total - liquid_assets)
+        # Calculate what portion of assets could realistically be used for debt payoff
+        # Assume only 20-30% of total assets are truly liquid and available for debt payoff
+        available_for_debt = liquid_assets * 0.25  # Only 25% of assets available for debt payoff
+        
+        # If available assets can cover debts, reduce but don't eliminate debt coverage
+        if available_for_debt >= liabilities_total:
+            # Still recommend some debt coverage (20% of total debt) for flexibility
+            return max(liabilities_total * 0.2, 50000)  # At least $50k or 20% of debt
+        
+        # Return the gap between debts and available assets
+        return max(0, liabilities_total - available_for_debt)
     
     def _calculate_education_funding(self, dependents: int, age: int) -> float:
         """Calculate education funding needs"""

@@ -263,7 +263,7 @@ class QuickCalculator:
                     next_question = await self._ask_next_question(context)
                     return {
                         "status": "question",
-                        "message": f"Thank you! {next_question}\n\nReply STOP to end calculator.",
+                        "message": f"Thank you! {next_question}",
                         "question": next_question,
                         "progress": f"{session['current_question_index']}/{len(self.standard_questions)} questions completed"
                     }
@@ -289,7 +289,7 @@ class QuickCalculator:
             if isinstance(context_or_session_id, ConversationContext):
                 session = context_or_session_id.calculator_session
                 if not session:
-                    return "No active calculator session found. Please start a new calculation."
+                    return "No active calculator session found."
             else:
                 session = self.active_sessions.get(context_or_session_id)
             
@@ -303,11 +303,16 @@ class QuickCalculator:
             
             current_question = self.standard_questions[current_question_index]
             
-            # Generate contextual question
-            contextual_question = await self._generate_contextual_question(current_question, context_or_session_id)
+            # Get the simple question and hint
+            simple_question = current_question["question"]
+            hint = self._get_simple_hint(current_question)
             
-            return contextual_question
-            
+            # Format: Question + Hint + Stop instruction
+            if hint:
+                return f"{simple_question}\n\n{hint}\n\nReply STOP to end calculator."
+            else:
+                return f"{simple_question}\n\nReply STOP to end calculator."
+        
         except Exception as e:
             logger.error(f"🧮 Error asking next question: {e}")
             return "Error generating question. Please try again."
@@ -386,6 +391,10 @@ class QuickCalculator:
             goals_text = ", ".join(goals) if goals else "basic_protection"
             logger.info(f"🧮 Financial goals: {goals_text}")
             
+            # Get additional values for backend
+            marital_status = session["answers"].get("marital_status", "Married")
+            provide_education = session["answers"].get("provide_education", "no")
+            
             # Call backend calculation using the correct method
             logger.info("🧮 Calling backend calculation...")
             result = await self.life_insurance_calc.calculate_quick_needs(
@@ -393,7 +402,12 @@ class QuickCalculator:
                 income=annual_income,
                 dependents=int(dependents) if dependents else 0,
                 debt=float(total_debt) if total_debt else 0,
-                goals=goals_text
+                assets=float(total_assets) if total_assets else 0,  # FIXED: Pass assets to backend
+                goals=goals_text,
+                individual_life=float(individual_life) if individual_life else 0,
+                group_life=float(group_life) if group_life else 0,
+                marital_status=marital_status,
+                provide_education=provide_education
             )
             
             logger.info(f"🧮 Backend calculation result: {result}")
@@ -409,9 +423,22 @@ class QuickCalculator:
             # Generate response
             logger.info("🧮 Generating calculation response...")
             
-            # Add current coverage information to the result for response generation
-            result["current_coverage"] = current_total_coverage
-            result["coverage_gap"] = result.get("recommended_coverage", 0) - current_total_coverage
+            # Use current coverage information from backend response
+            result["current_coverage"] = result.get("current_coverage", current_total_coverage)
+            # Don't use backend gap - we'll calculate it correctly later
+            
+            # Add user inputs for context
+            result["user_inputs"] = {
+                "age": age,
+                "marital_status": session["answers"].get("marital_status", "Not provided"),
+                "dependents": dependents,
+                "monthly_income": monthly_income,
+                "mortgage_balance": total_debt,
+                "total_assets": total_assets,
+                "individual_life": individual_life,
+                "group_life": group_life,
+                "provide_education": session["answers"].get("provide_education", False)
+            }
             
             response = await self._generate_calculation_response(result)
             
@@ -446,15 +473,9 @@ class QuickCalculator:
     async def _generate_calculation_response(self, result: Dict[str, Any]) -> str:
         """Generate a user-friendly response for the calculation result"""
         try:
-            prompt = self._build_calculation_response_prompt(result)
-            
-            response = await self.llm.chat.completions.create(
-                model=config.openai_model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7
-            )
-            
-            return response.choices[0].message.content
+            # Use the structured response directly instead of LLM generation
+            # This ensures the exact format and debt explanation are used
+            return self._get_default_calculation_response(result)
             
         except Exception as e:
             logger.error(f"🧮 Error generating calculation response: {e}")
@@ -465,90 +486,244 @@ class QuickCalculator:
         try:
             # Handle the actual backend response format from quick calculation
             coverage = result.get('recommended_coverage', 0)
-            monthly_premium = result.get('monthly_premium_estimate', 0)
             calculation_method = result.get('calculation_method', 'DIME + Income Replacement')
             
             # Get current coverage information
             current_coverage = result.get('current_coverage', 0)
-            coverage_gap = result.get('coverage_gap', coverage)
+            # Calculate gap using corrected coverage value
+            coverage_gap = max(0, coverage - current_coverage)
+            
+            # Get user inputs for context
+            user_inputs = result.get('user_inputs', {})
             
             # For quick calculation, we need to determine product recommendation based on the data
-            product = "JPM TermVest+ IUL Track"  # Default to IUL for better value
-            rationale = f"Based on {calculation_method} methodology, considering your age, income, and dependents"
-            duration_years = 20  # Default term length
+            product = result.get('product_recommendation', 'JPM TermVest+ IUL Track')
+            rationale = result.get('rationale', f"Based on {calculation_method} methodology, considering your age, income, and dependents")
+            duration_years = result.get('duration_years', 20)
             
-            # Since we don't have breakdown from quick calculation, we'll estimate based on coverage
-            estimated_breakdown = {
-                'living_expenses': int(coverage * 0.6),  # 60% for income replacement
-                'debts': int(coverage * 0.2),           # 20% for debt coverage
-                'education': int(coverage * 0.1),       # 10% for education
-                'funeral': 8000,                        # Standard funeral cost
-                'legacy': int(coverage * 0.1),          # 10% for legacy
-                'other': 0
-            }
+            # Enhanced product explanation
+            product_explanation = self._get_product_explanation(product, user_inputs)
             
-            # Calculate monthly savings recommendation
-            monthly_savings = max(300, int(coverage * 0.0001))  # Rough estimate
-            max_monthly = monthly_savings * 2  # Conservative max
+            # Get actual breakdown from backend if available, otherwise estimate
+            needs_breakdown = result.get('needs_breakdown', {})
+            if needs_breakdown:
+                breakdown = {
+                    'living_expenses': needs_breakdown.get('living_expenses', 0),
+                    'debts': needs_breakdown.get('debts', 0),
+                    'education': needs_breakdown.get('education', 0),
+                    'funeral': needs_breakdown.get('funeral', 0),
+                    'legacy': needs_breakdown.get('legacy', 0),
+                    'other': needs_breakdown.get('other', 0)
+                }
+                # Calculate total coverage from breakdown components to ensure consistency
+                calculated_coverage = sum(breakdown.values())
+                if calculated_coverage > 0:
+                    coverage = calculated_coverage
+            else:
+                # Fallback estimation - use actual backend calculation if available
+                # The backend should provide the real breakdown, but if not, calculate it properly
+                breakdown = {
+                    'living_expenses': int(coverage * 0.7),  # 70% for income replacement
+                    'debts': int(coverage * 0.15),           # 15% for debt coverage
+                    'education': int(coverage * 0.1),        # 10% for education
+                    'funeral': 8000,                         # Standard funeral cost
+                    'legacy': int(coverage * 0.05),          # 5% for legacy
+                    'other': 0
+                }
+            
+            # Calculate gap using corrected coverage value
+            coverage_gap = max(0, coverage - current_coverage)
+            
+            # Get monthly savings information from backend
+            monthly_savings = result.get('recommended_monthly_savings', 0)
+            max_monthly = result.get('max_monthly_contribution', 0)
+            
+            # Get cash value projections
+            cash_value_projection = result.get('cash_value_projection', [])
+            projection_parameters = result.get('projection_parameters', {})
         
             # Calculate savings level indicator
             percentage = 50  # Default to medium
             if max_monthly and monthly_savings:
                 percentage = min((monthly_savings / max_monthly) * 100, 100)
         
-            return f"""Generate a comprehensive life insurance calculation response for chat that explains the results clearly.
+            # Build comprehensive "About You" section for future context
+            about_you_section = ""
+            if user_inputs:
+                age = user_inputs.get('age', 'Not provided')
+                marital_status = user_inputs.get('marital_status', 'Not provided')
+                dependents = user_inputs.get('dependents', 0)
+                monthly_income = user_inputs.get('monthly_income', 0)
+                annual_income = monthly_income * 12 if monthly_income else 0
+                mortgage_balance = user_inputs.get('mortgage_balance', 0)
+                total_assets = user_inputs.get('total_assets', 0)
+                individual_life = user_inputs.get('individual_life', 0)
+                group_life = user_inputs.get('group_life', 0)
+                provide_education = user_inputs.get('provide_education', False)
+                
+                about_you_section = f"""
+**About You:**
+- **Age**: {age} years old
+- **Family**: {marital_status.title()}, {dependents} dependent{'s' if dependents != 1 else ''}
+- **Income**: ${annual_income:,.0f} annually (${monthly_income:,.0f}/month)
+- **Assets**: ${total_assets:,.0f} in total assets
+- **Debt**: ${mortgage_balance:,.0f} mortgage balance
+- **Current Coverage**: ${individual_life:,.0f} individual + ${group_life:,.0f} group = ${individual_life + group_life:,.0f} total
+- **Education Planning**: {'Yes' if provide_education else 'No'} for children's future
+- **Financial Goals**: Basic protection and family security
+"""
 
-**Calculation Results:**
-- Recommended Coverage: ${coverage:,}
-- Current Coverage: ${current_coverage:,}
-- Coverage Gap: ${coverage_gap:,}
-- Product: {product}
-- Duration: {'permanent' if 'IUL' in str(product) else f'{duration_years} years'}
-- Rationale: {rationale}
+            # Build cash value projections section - only for IUL products
+            cash_value_section = ""
+            if 'IUL' in str(product) and cash_value_projection and len(cash_value_projection) > 0:
+                # Extract key projection years (10, 20, 30, 40)
+                key_years = [10, 20, 30, 40]
+                projections_text = []
+                for year in key_years:
+                    # Find the projection for this year
+                    year_projection = None
+                    for projection in cash_value_projection:
+                        if projection.get('year') == year:
+                            year_projection = projection
+                            break
+                    
+                    if year_projection:
+                        value = year_projection.get('value', 0)
+                        projections_text.append(f"Year {year}: ${value:,.0f}")
+                
+                if projections_text:
+                    cash_value_section = f"""
+**Cash Value Projections:**
+- {', '.join(projections_text)}
+- Illustrated Rate: {projection_parameters.get('illustrated_rate', 0.06):.1%}
+- Monthly Contribution: ${projection_parameters.get('monthly_contribution', 0):,.0f}
+"""
 
-**Coverage Breakdown:**
-- Living Expenses: ${estimated_breakdown['living_expenses']:,}
-- Debts: ${estimated_breakdown['debts']:,}
-- Education: ${estimated_breakdown['education']:,}
-- Funeral: ${estimated_breakdown['funeral']:,}
-- Legacy: ${estimated_breakdown['legacy']:,}
-- Other: ${estimated_breakdown['other']:,}
+            # Create debt explanation based on actual calculation
+            debt_explanation = ""
+            if breakdown['debts'] > 0:
+                # Get user inputs for context
+                mortgage_balance = user_inputs.get('mortgage_balance', 0)
+                total_assets = user_inputs.get('total_assets', 0)
+                
+                if total_assets > 0:
+                    debt_explanation = f"Debt payoff (accounts for assets reducing coverage need: debt subtracted by 25% of assets)"
+                else:
+                    debt_explanation = "Debt payoff"
+            else:
+                debt_explanation = "Debt payoff (covered by existing assets)"
 
-**Monthly Premium Estimate:**
-- Estimated Monthly Premium: ${monthly_premium:,} (if $0, this indicates a calculation estimate)
-- Recommended Monthly Savings: ${monthly_savings:,}
-- Maximum Monthly Contribution: ${max_monthly:,}
-- Savings Level: {percentage:.0f}% of maximum
+            return f"""Generate a professional life insurance analysis response. Use this EXACT structure and format:
 
-**Key Factors:**
-- Calculation Method: {calculation_method}
-- Product Recommendation: {product}
-- Coverage Duration: {'permanent' if 'IUL' in str(product) else f'{duration_years} years'}
+**COVERAGE ANALYSIS**
+**Coverage Needed:** ${coverage:,}
+**Current Coverage:** ${current_coverage:,}
+**Coverage Gap:** ${coverage_gap:,}
 
-**Next Steps:**
-1. Review your coverage needs
-2. Compare with existing coverage
-3. Consider different product types
-4. Consult with a licensed insurance professional
+{about_you_section}
 
-Please format this as a friendly, conversational response that explains the results clearly and provides actionable next steps."""
+**COVERAGE BREAKDOWN**
+• **Living Expenses:** ${breakdown['living_expenses']:,} - Income replacement
+• **Debts:** ${breakdown['debts']:,} - {debt_explanation}
+• **Education:** ${breakdown['education']:,} - College funding
+• **Funeral:** ${breakdown['funeral']:,} - Final expenses
+• **Legacy:** ${breakdown['legacy']:,} - Financial legacy
+• **Other:** ${breakdown['other']:,} - Additional needs
+
+**PRODUCT RECOMMENDATION**
+**{product}** - {rationale}
+
+{f'**CASH VALUE SAVINGS**' if 'IUL' in str(product) else ''}
+{f'• **Recommended Monthly Savings:** ${monthly_savings:,}/month' if 'IUL' in str(product) else ''}
+{f'• **Maximum (MEC Limit):** ${max_monthly:,}/month' if 'IUL' in str(product) else ''}
+{f'• **Your Level:** {percentage:.0f}% of maximum' if 'IUL' in str(product) else ''}
+{cash_value_section}
+**NEXT STEPS**
+• Review your coverage needs with a licensed insurance professional.
+• Compare quotes from multiple carriers for the best rates.
+• Consider your budget and timeline for implementing coverage.
+• Schedule a follow-up to discuss any questions or concerns.
+
+**DISCLAIMERS**
+{f'Projections are estimates based on 6% illustrated rate. Actual results may vary. MEC limits apply for tax treatment. Consult licensed professionals.' if 'IUL' in str(product) else 'Premium estimates are based on current rates and may vary. Consult licensed professionals for accurate quotes and personalized advice.'}
+
+CRITICAL: You MUST use the exact structure above. Do NOT change the format, add emojis, or modify the debt explanation. The debt explanation must be: "{debt_explanation}"
+"""
             
         except Exception as e:
             logger.error(f"🧮 Error building calculation response prompt: {e}")
             return "Generate a comprehensive life insurance calculation response."
+    
+    def _get_product_explanation(self, product: str, user_inputs: Dict[str, Any]) -> str:
+        """Generate detailed product explanation based on recommendation"""
+        try:
+            age = user_inputs.get('age', 35)
+            income = user_inputs.get('monthly_income', 0) * 12
+            dependents = user_inputs.get('dependents', 0)
+            
+            if 'IUL' in product:
+                income_text = f"${income:,.0f}"
+                return f"""
+**JPM TermVest+ IUL Track - Why This Product:**
+- **Indexed Universal Life (IUL)**: Combines life insurance protection with cash value growth potential
+- **Age Advantage**: At {age}, you have time for cash value to accumulate and grow
+- **Income Level**: Your {income_text} annual income supports the premium structure
+- **Family Protection**: {dependents} dependents need long-term financial security
+- **Tax Benefits**: Cash value grows tax-deferred, withdrawals can be tax-free
+- **Flexibility**: Adjust premiums and death benefit as your needs change
+- **Track Performance**: Tied to market indices with downside protection
+- **Why JPM**: Strong financial backing, competitive crediting rates, and proven track record
+
+**IUL Benefits for You:**
+- Build cash value over time that you can access
+- Death benefit protection for your family
+- Potential for higher returns than traditional whole life
+- Flexibility to adjust coverage as life changes
+- Tax-advantaged growth and access to funds
+"""
+            elif 'Term' in product:
+                income_text = f"${income:,.0f}"
+                return f"""
+**Term Life Insurance - Why This Product:**
+- **Pure Protection**: Maximum coverage for minimum premium
+- **Age Advantage**: At {age}, you get the best rates for term coverage
+- **Income Level**: Your {income_text} annual income supports the premium
+- **Family Protection**: {dependents} dependents need immediate protection
+- **Cost Effective**: Lower premiums allow for higher coverage amounts
+- **Convertible**: Option to convert to permanent coverage later
+- **Simple**: Straightforward coverage without investment complexity
+
+**Term Benefits for You:**
+- Maximum death benefit for your premium dollar
+- Lower cost allows for higher coverage amounts
+- Simple, straightforward protection
+- Convertible to permanent coverage if needed
+- No investment risk or complexity
+"""
+            else:
+                income_text = f"${income:,.0f}"
+                return f"""
+**Life Insurance Recommendation:**
+- **Product**: {product}
+- **Age Consideration**: At {age}, you have good options for coverage
+- **Income Level**: Your {income_text} annual income supports various product types
+- **Family Protection**: {dependents} dependents need reliable coverage
+- **Customized**: Selected based on your specific financial situation
+"""
+        except Exception as e:
+            logger.error(f"🧮 Error generating product explanation: {e}")
+            return f"**Product Recommendation**: {product} - Selected based on your financial profile and coverage needs."
     
     def _get_default_calculation_response(self, result: Dict[str, Any]) -> str:
         """Default calculation response matching frontend results page - chat-optimized with full details"""
         try:
             # Handle the actual backend response format from quick calculation
             coverage = result.get('recommended_coverage', 0)
-            monthly_premium = result.get('monthly_premium_estimate', 0)
             calculation_method = result.get('calculation_method', 'DIME + Income Replacement')
             
             # Get current coverage from the session context (we'll need to pass this through)
             # For now, we'll assume no current coverage since this is a quick calculation
             current_coverage = result.get('current_coverage', 0)  # This now comes from the result
-            coverage_gap = result.get('coverage_gap', coverage)  # This now comes from the result
             
             # For quick calculation, we need to determine product recommendation based on the data
             # Since we don't have detailed breakdown, we'll make a reasonable assumption
@@ -556,25 +731,51 @@ Please format this as a friendly, conversational response that explains the resu
             rationale = f"Based on {calculation_method} methodology, considering your age, income, and dependents"
             duration_years = 20  # Default term length
             
-            # Since we don't have breakdown from quick calculation, we'll estimate based on coverage
-            estimated_breakdown = {
-                'living_expenses': int(coverage * 0.6),  # 60% for income replacement
-                'debts': int(coverage * 0.2),           # 20% for debt coverage
-                'education': int(coverage * 0.1),       # 10% for education
-                'funeral': 8000,                        # Standard funeral cost
-                'legacy': int(coverage * 0.1),          # 10% for legacy
-                'other': 0
-            }
+            # Get actual breakdown from backend if available, otherwise estimate
+            needs_breakdown = result.get('needs_breakdown', {})
+            if needs_breakdown:
+                breakdown = {
+                    'living_expenses': needs_breakdown.get('living_expenses', 0),
+                    'debts': needs_breakdown.get('debts', 0),
+                    'education': needs_breakdown.get('education', 0),
+                    'funeral': needs_breakdown.get('funeral', 0),
+                    'legacy': needs_breakdown.get('legacy', 0),
+                    'other': needs_breakdown.get('other', 0)
+                }
+                # Calculate total coverage from breakdown components to ensure consistency
+                calculated_coverage = sum(breakdown.values())
+                if calculated_coverage > 0:
+                    coverage = calculated_coverage
+            else:
+                # Fallback estimation - use actual backend calculation if available
+                # The backend should provide the real breakdown, but if not, calculate it properly
+                breakdown = {
+                    'living_expenses': int(coverage * 0.7),  # 70% for income replacement
+                    'debts': int(coverage * 0.15),           # 15% for debt coverage
+                    'education': int(coverage * 0.1),        # 10% for education
+                    'funeral': 8000,                         # Standard funeral cost
+                    'legacy': int(coverage * 0.05),          # 5% for legacy
+                    'other': 0
+                }
             
-            # Calculate monthly savings recommendation (2-3% of monthly income)
-            # We'll estimate based on the coverage amount
-            monthly_savings = max(300, int(coverage * 0.0001))  # Rough estimate
-            max_monthly = monthly_savings * 2  # Conservative max
+            # Calculate gap using corrected coverage value
+            coverage_gap = max(0, coverage - current_coverage)
+            
+            # Get monthly savings information from backend
+            monthly_savings = result.get('recommended_monthly_savings', 0)
+            max_monthly = result.get('max_monthly_contribution', 0)
+            
+            # Get cash value projections
+            cash_value_projection = result.get('cash_value_projection', [])
+            projection_parameters = result.get('projection_parameters', {})
             
             # Calculate savings level indicator
             percentage = 50  # Default to medium
             if max_monthly and monthly_savings:
                 percentage = min((monthly_savings / max_monthly) * 100, 100)
+            
+            # Calculate annual income for context
+            annual_income = 240000  # Default for example
             
             savings_level = ""
             savings_color = ""
@@ -599,56 +800,107 @@ Please format this as a friendly, conversational response that explains the resu
                 product_explanation = "JPM TermVest+ offers two tracks: Term and IUL. The Term Track provides essential protection at an affordable premium for a specified period. You can convert to the IUL Track later to begin building cash value savings with permanent coverage when your financial situation allows."
                 duration_display = f"{duration_years} years"
             
-            # Chat-optimized response matching frontend results page completely
-            response = f"""🎉 **Your Life Insurance Needs Calculation is Complete!**
+            # Build cash value projections section for default response - only for IUL products
+            cash_value_section = ""
+            if 'IUL' in str(product) and cash_value_projection and len(cash_value_projection) > 0:
+                # Extract key projection years (10, 20, 30, 40)
+                key_years = [10, 20, 30, 40]
+                projections_text = []
+                for year in key_years:
+                    # Find the projection for this year
+                    year_projection = None
+                    for projection in cash_value_projection:
+                        if projection.get('year') == year:
+                            year_projection = projection
+                            break
+                    
+                    if year_projection:
+                        value = year_projection.get('value', 0)
+                        projections_text.append(f"Year {year}: ${value:,.0f}")
+                
+                if projections_text:
+                    monthly_contribution = projection_parameters.get('monthly_contribution', 0)
+                    monthly_contribution_text = f"${monthly_contribution:,.0f}"
+                    cash_value_section = f"""
+**CASH VALUE PROJECTIONS:**
+- {', '.join(projections_text)}
+- Illustrated Rate: {projection_parameters.get('illustrated_rate', 0.06):.1%}
+- Monthly Contribution: {monthly_contribution_text}
+"""
 
-**📊 SUMMARY CARDS:**
-• **Recommended Coverage:** ${coverage:,}
-• **Current Coverage:** ${current_coverage:,}
-• **Coverage Gap:** ${coverage_gap:,}
-• **Duration:** {duration_display}
+            # Create debt explanation based on actual calculation
+            debt_explanation = ""
+            if breakdown['debts'] > 0:
+                debt_explanation = "Debt payoff (accounts for assets reducing coverage need: debt subtracted by 25% of assets)"
+            else:
+                debt_explanation = "Debt payoff (covered by existing assets)"
 
-**🏆 PRODUCT RECOMMENDATION:**
-**{product}**
+            # Build comprehensive "About You" section for context
+            about_you_section = ""
+            user_inputs = result.get('user_inputs', {})
+            if user_inputs:
+                age = user_inputs.get('age', 'Not provided')
+                marital_status = user_inputs.get('marital_status', 'Not provided')
+                dependents = user_inputs.get('dependents', 0)
+                monthly_income = user_inputs.get('monthly_income', 0)
+                annual_income = monthly_income * 12 if monthly_income else 0
+                mortgage_balance = user_inputs.get('mortgage_balance', 0)
+                total_assets = user_inputs.get('total_assets', 0)
+                individual_life = user_inputs.get('individual_life', 0)
+                group_life = user_inputs.get('group_life', 0)
+                provide_education = user_inputs.get('provide_education', False)
+                
+                about_you_section = f"""
+**About You:**
+- **Age**: {age} years old
+- **Family**: {marital_status.title()}, {dependents} dependent{'s' if dependents != 1 else ''}
+- **Income**: ${annual_income:,.0f} annually (${monthly_income:,.0f}/month)
+- **Assets**: ${total_assets:,.0f} in total assets
+- **Debt**: ${mortgage_balance:,.0f} mortgage balance
+- **Current Coverage**: ${individual_life:,.0f} individual + ${group_life:,.0f} group = ${individual_life + group_life:,.0f} total
+- **Education Planning**: {'Yes' if provide_education else 'No'} for children's future
+- **Financial Goals**: Basic protection and family security
+"""
 
-{product_explanation}
+            # Enhanced product recommendation
+            product_explanation = ""
+            if 'IUL' in str(product):
+                product_explanation = f"""This product is tailored to your profile as a {user_inputs.get('age', 35)}-year-old with a ${user_inputs.get('monthly_income', 0) * 12:,.0f} income and {user_inputs.get('dependents', 0)} dependents. The IUL Track allows you to start with term coverage for lower initial premiums, providing essential protection now. Over time, you can convert to permanent coverage, which not only secures your family's financial future but also accumulates cash value that you can use for retirement or legacy purposes. This flexibility ensures that as your financial situation improves, your insurance can adapt to meet your needs."""
+            else:
+                product_explanation = f"""This product is tailored to your profile as a {user_inputs.get('age', 35)}-year-old with a ${user_inputs.get('monthly_income', 0) * 12:,.0f} income and {user_inputs.get('dependents', 0)} dependents. The Term Track provides essential protection at an affordable premium for a specified period. You can convert to the IUL Track later to begin building cash value savings with permanent coverage when your financial situation allows."""
 
-**Why this product?** {rationale}
+            # Clean, professional response using real data
+            response = f"""**COVERAGE ANALYSIS**
+**Coverage Needed:** ${coverage:,}
+**Current Coverage:** ${current_coverage:,}
+**Coverage Gap:** ${coverage_gap:,}
 
-**📋 COVERAGE BREAKDOWN:**
-• Living Expenses: ${estimated_breakdown['living_expenses']:,}
-• Debts: ${estimated_breakdown['debts']:,}
-• Education: ${estimated_breakdown['education']:,}
-• Funeral: ${estimated_breakdown['funeral']:,}
-• Legacy: ${estimated_breakdown['legacy']:,}
-• Other: ${estimated_breakdown['other']:,}
+This ${coverage_gap:,} gap represents the additional protection your family would need to maintain their current lifestyle and achieve your financial goals if something were to happen to you.
+{about_you_section}
+**COVERAGE BREAKDOWN**
+• **Living Expenses:** ${breakdown['living_expenses']:,} - Income replacement
+• **Debts:** ${breakdown['debts']:,} - {debt_explanation}
+• **Education:** ${breakdown['education']:,} - College funding
+• **Funeral:** ${breakdown['funeral']:,} - Final expenses
+• **Legacy:** ${breakdown['legacy']:,} - Financial legacy
+• **Other:** ${breakdown['other']:,} - Additional needs
 
-**💰 MONTHLY PREMIUM DETAILS:**
-• **Estimated Monthly Premium:** ${monthly_premium:,} (if $0, this indicates a calculation estimate)
-• **Recommended Monthly Savings:** ${monthly_savings:,}
-• **Maximum Monthly Contribution:** ${max_monthly:,}
+**PRODUCT RECOMMENDATION**
+**{product}** - {product_explanation}
 
-**💡 WHAT THIS MEANS:**
-The MEC (Modified Endowment Contract) limit is the maximum monthly contribution that keeps your policy from becoming a modified endowment contract, which has different tax implications.
+{f'**CASH VALUE SAVINGS**' if 'IUL' in str(product) else ''}
+{f'• **Recommended Monthly Savings:** ${monthly_savings:,}/month' if 'IUL' in str(product) else ''}
+{f'• **Maximum (MEC Limit):** ${max_monthly:,}/month' if 'IUL' in str(product) else ''}
+{f'• **Your Level:** {percentage:.0f}% of maximum' if 'IUL' in str(product) else ''}
+{cash_value_section}
+**NEXT STEPS**
+• Review your coverage needs with a licensed insurance professional.
+• Compare quotes from multiple carriers for the best rates.
+• Consider your budget and timeline for implementing coverage.
+• Schedule a follow-up to discuss any questions or concerns.
 
-**📈 SAVINGS LEVEL INDICATOR:**
-{savings_color} **{savings_level}** ({percentage:.0f}% of maximum)
-
-**🎯 PROJECTION ASSUMPTIONS:**
-Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60% in subsequent years. Actual results may vary and are not guaranteed.
-
-**🚀 NEXT STEPS:**
-1. **Review the breakdown** - Does this coverage amount feel right for your situation?
-2. **Ask questions** - I can explain any part of the calculation in more detail
-3. **Explore options** - We can discuss different policy types and features
-4. **Get professional advice** - Consider consulting with a licensed insurance professional
-
-**💬 AVAILABLE ACTIONS:**
-• **Ask Robo-Advisor** - Get more detailed explanations
-• **Start Application** - Begin the application process
-• **Start Over** - Recalculate with different inputs
-
-**What would you like me to explain about this coverage amount or the different components?**"""
+**DISCLAIMERS**
+{f'Projections are estimates based on a 6% illustrated rate. Actual results may vary. MEC limits apply for tax treatment. Consult licensed professionals.' if 'IUL' in str(product) else 'Premium estimates are based on current rates and may vary. Consult licensed professionals for accurate quotes and personalized advice.'}"""
             
             return response.strip()
             
@@ -697,64 +949,23 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
         """Default welcome message if LLM generation fails - chat-optimized"""
         return "Great! Let's calculate your life insurance needs. I'll ask you a few questions to get started."
 
-    async def _generate_contextual_question(self, question: Dict[str, Any], context: ConversationContext) -> str:
-        """Generate a contextual question based on previous answers"""
-        try:
-            prompt = self._build_contextual_question_prompt(question, context)
-            
-            response = await self.llm.chat.completions.create(
-                model=config.openai_model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7
-            )
-            
-            return response.choices[0].message.content
-            
-        except Exception as e:
-            logger.error(f"Error generating contextual question: {e}")
-            return self._get_simple_hint(question)
 
-    def _build_contextual_question_prompt(self, question: Dict[str, Any], context: ConversationContext) -> str:
-        """Build prompt for contextual question generation"""
-        return f"""
-        Generate a friendly, contextual question for a life insurance needs assessment.
-        
-        **Base Question:** {question['question']}
-        **Question Type:** {question['type']}
-        **User Context:** {context.knowledge_level.value} level, current focus: {context.current_topic or 'Insurance Planning'}
-        
-        **Requirements:**
-        - Keep the question clear and friendly
-        - Adapt to the user's knowledge level
-        - Make it conversational and engaging
-        - Include context from previous questions if relevant
-        
-        **Examples:**
-        - Beginner: "To help us understand your life insurance needs better, what is your age?"
-        - Intermediate: "For accurate coverage calculation, please tell me your current age."
-        - Expert: "What is your age for the life insurance needs assessment?"
-        
-        **Generate a friendly, contextual version of the question:**
-        """
 
     def _get_simple_hint(self, question: Dict[str, Any]) -> str:
         """Get a simple, helpful hint for each question - chat-optimized"""
         question_id = question["id"]
         
-        # Simple, conversational hints
+        # Simple, conversational hints for the questions actually asked in chatbot
         hints = {
             "age": "Just enter your age as a number (e.g., 35).",
             "marital_status": "Choose: Single, Married, Divorced, or Widowed.",
             "dependents": "How many people depend on your income? (children, elderly parents, etc.)",
             "monthly_income": "Your monthly income before taxes (e.g., $5,000 or 5000).",
             "mortgage_balance": "Total debt including mortgage, loans, credit cards (e.g., $300,000).",
-            "other_debts": "Your total assets (savings, investments, etc.) (e.g., $150,000).",
+            "total_assets": "Your total assets (savings, investments, etc.) (e.g., $150,000).",
             "provide_education": "Do you want to provide for children's college education? (yes/no)",
             "individual_life": "Current individual life insurance amount (e.g., $100,000 or 0 if none).",
-            "group_life": "Current group life insurance from work (e.g., $50,000 or 0 if none).",
-            "cash_value_importance": "Do you want savings/cash value with your policy? (yes/no/unsure)",
-            "permanent_coverage": "Do you want lifelong coverage or temporary? (yes/no/unsure)",
-            "income_replacement_years": "How many years of income replacement? (5-20, default is 10)."
+            "group_life": "Current group life insurance from work (e.g., $50,000 or 0 if none)."
         }
         
         return hints.get(question_id, "")
@@ -785,7 +996,7 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
             
             return {
                 "status": "validation_failed",
-                "message": response + "\n\nReply STOP to end calculator.",
+                "message": response,
                 "question": question["question"],
                 "error": error_message,
                 "suggestion": suggestion
@@ -807,7 +1018,7 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
             
             return {
                 "status": "clarification_needed",
-                "message": clarification + "\n\nReply STOP to end calculator.",
+                "message": clarification,
                 "question": question["question"],
                 "original_answer": original_answer
             }
@@ -947,13 +1158,13 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
             
             elif question_type == "currency":
                 # Try to extract currency amount - more robust pattern
-                # First try the standard pattern
-                currency_pattern = r'\$?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)'
+                # First try the standard pattern for properly formatted comma-separated numbers
+                currency_pattern = r'\$?(\d{1,3}(?:,\d{3})+(?:\.\d{2})?)'
                 matches = re.findall(currency_pattern, answer)
                 
                 if not matches:
-                    # Try a more flexible pattern for edge cases
-                    flexible_pattern = r'\$?([\d,]+(?:\.\d+)?)'
+                    # Try a more flexible pattern for numbers without commas
+                    flexible_pattern = r'\$?(\d+(?:\.\d+)?)'
                     matches = re.findall(flexible_pattern, answer)
                 
                 if matches:
@@ -962,11 +1173,12 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
                     
                     # Handle cases where user might have typed extra zeros or made typos
                     # For example, "$2,000,0000" should be interpreted as "$2,000,000"
-                    if len(value_str) > 6 and value_str.endswith('0'):
-                        # If it's a large number ending with 0, try removing trailing zeros
-                        # but only if it makes sense (e.g., 20000000 -> 2000000)
+                    # But don't remove zeros from valid large numbers like "1000000"
+                    if len(value_str) > 7 and value_str.endswith('0'):
+                        # Only remove trailing zeros if the number is unreasonably long (>7 digits)
+                        # and ends with multiple zeros (likely a typo)
                         original_value = value_str
-                        while len(value_str) > 6 and value_str.endswith('0'):
+                        while len(value_str) > 7 and value_str.endswith('0'):
                             value_str = value_str[:-1]
                         
                         # If the cleaned value is reasonable, use it
@@ -992,9 +1204,7 @@ Projection assumes illustrated rate of 5.5%, allocations of 20% in year 1 and 60
                         if digits_only:
                             # Reconstruct a reasonable number
                             value_str = ''.join(digits_only)
-                            if len(value_str) > 6:
-                                # For very long numbers, take the first 7 digits (reasonable for currency)
-                                value_str = value_str[:7]
+                            # Don't truncate - use the full number
                             try:
                                 value = float(value_str)
                                 logger.info(f"🧮 Reconstructed currency value from digits: {value}")

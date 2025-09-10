@@ -151,7 +151,7 @@ async def test_chatbot_context_functionality():
                         compliance_section = content[compliance_start:compliance_end]
                         
                         # Check that conversation context is NOT included
-                        conversation_context_terms = ['Recent Themes:', 'User Goals:', 'semantic_themes', 'user_goals']
+                        conversation_context_terms = ['User Goals:', 'user_goals']
                         excluded_terms = []
                         
                         for term in conversation_context_terms:

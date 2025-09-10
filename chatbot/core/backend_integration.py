@@ -23,8 +23,8 @@ class BackendAPIIntegrator:
         """Calculate life insurance needs using the backend API"""
         
         try:
-            # Determine which endpoint to use based on data complexity
-            if len(data) <= 6 and "calculation_type" in data:
+            # Determine which endpoint to use based on calculation type
+            if data.get("calculation_type") == "quick_estimate":
                 # Simple chatbot calculation - use quick endpoint
                 endpoint = "http://localhost:8000/api/calculate-needs-quick"
                 print(f"Using quick endpoint for chatbot calculation: {endpoint}")
@@ -118,7 +118,7 @@ class LifeInsuranceCalculator:
     def __init__(self, backend_integrator: BackendAPIIntegrator):
         self.backend = backend_integrator
     
-    async def calculate_quick_needs(self, age: int, income: float, dependents: int, debt: float, goals: str) -> Dict[str, Any]:
+    async def calculate_quick_needs(self, age: int, income: float, dependents: int, debt: float, assets: float, goals: str, individual_life: float = 0, group_life: float = 0, marital_status: str = "Married", provide_education: str = "no") -> Dict[str, Any]:
         """Calculate quick insurance needs estimate"""
         
         try:
@@ -128,8 +128,13 @@ class LifeInsuranceCalculator:
                 "annual_income": income,
                 "dependents": dependents,
                 "total_debt": debt,
+                "total_assets": assets,  # FIXED: Pass assets to backend
                 "financial_goals": goals,
-                "calculation_type": "quick_estimate"
+                "calculation_type": "quick_estimate",
+                "individual_life": individual_life,
+                "group_life": group_life,
+                "marital_status": marital_status,
+                "provide_education": provide_education
             }
             
             # Call backend API
@@ -139,10 +144,23 @@ class LifeInsuranceCalculator:
                 return {
                     "status": "success",
                     "recommended_coverage": result.get("recommended_coverage", 0),
+                    "current_coverage": result.get("current_coverage", 0),
+                    "gap": result.get("gap", 0),
+                    "individual_life": result.get("individual_life", 0),
+                    "group_life": result.get("group_life", 0),
+                    "product_recommendation": result.get("product_recommendation", ""),
+                    "rationale": result.get("rationale", ""),
+                    "duration_years": result.get("duration_years", 20),
                     "monthly_premium_estimate": result.get("monthly_premium_estimate", 0),
                     "calculation_method": result.get("calculation_method", "DIME + Income Replacement"),
                     "key_factors": result.get("key_factors", []),
-                    "next_steps": result.get("next_steps", [])
+                    "next_steps": result.get("next_steps", []),
+                    # Add missing data from backend
+                    "needs_breakdown": result.get("needs_breakdown", {}),
+                    "recommended_monthly_savings": result.get("recommended_monthly_savings", 0),
+                    "max_monthly_contribution": result.get("max_monthly_contribution", 0),
+                    "cash_value_projection": result.get("cash_value_projection", []),
+                    "projection_parameters": result.get("projection_parameters", {})
                 }
             else:
                 return result

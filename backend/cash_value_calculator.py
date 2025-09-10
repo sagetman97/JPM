@@ -16,8 +16,8 @@ class CashValueProjection:
     recommended_monthly_savings: float
     max_monthly_contribution: float
     total_contributions: float
-    projected_cash_value_30yr: float
-    projected_death_benefit_30yr: float
+    projected_cash_value_40yr: float
+    projected_death_benefit_40yr: float
 
 class CashValueCalculator:
     """Calculate IUL cash value projections and recommendations"""
@@ -72,9 +72,9 @@ class CashValueCalculator:
             }
             
             # Calculate totals
-            total_contributions = recommended_savings * 12 * 30  # 30 years
-            projected_cash_value_30yr = projection[-1].value if projection else 0
-            projected_death_benefit_30yr = projection[-1].death_benefit if projection else 0
+            total_contributions = recommended_savings * 12 * 40  # 40 years
+            projected_cash_value_40yr = projection[-1].value if projection else 0
+            projected_death_benefit_40yr = projection[-1].death_benefit if projection else 0
             
             return CashValueProjection(
                 projection=projection,
@@ -82,8 +82,8 @@ class CashValueCalculator:
                 recommended_monthly_savings=recommended_savings,
                 max_monthly_contribution=min(recommended_savings * 1.5, 2500),  # Cap at MEC limit
                 total_contributions=total_contributions,
-                projected_cash_value_30yr=projected_cash_value_30yr,
-                projected_death_benefit_30yr=projected_death_benefit_30yr
+                projected_cash_value_40yr=projected_cash_value_40yr,
+                projected_death_benefit_40yr=projected_death_benefit_40yr
             )
             
         except Exception as e:
@@ -148,12 +148,12 @@ class CashValueCalculator:
     
     def _generate_projection(self, monthly_savings: float, allocation_params: Dict[str, float], 
                            age: int) -> List[CashValueProjectionPoint]:
-        """Generate 30-year cash value projection with proper compound growth"""
+        """Generate 40-year cash value projection with proper compound growth"""
         projection = []
         cash_value = 0
         death_benefit = 100000  # Base death benefit
         
-        for year in range(1, 31):
+        for year in range(1, 41):  # Generate 40 years of projections
             # Calculate cash value growth with proper compound interest
             if year == 1:
                 # First year: premium allocation applies

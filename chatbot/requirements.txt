@@ -20,6 +20,14 @@ PyPDF2==3.0.1
 python-docx==1.1.0
 openpyxl==3.1.2
 pandas==2.1.4
+reportlab==4.0.4
+
+# Chart generation for PDFs
+matplotlib==3.8.2
+seaborn==0.13.0
+
+# Headless browser for screenshot-based PDF generation
+playwright==1.40.0
 
 # External search
 tavily-python==0.3.1

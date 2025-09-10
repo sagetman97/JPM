@@ -57,7 +57,6 @@ class SemanticCalculatorSelector:
         
         **Conversation Context:**
         - User's knowledge level: {context.knowledge_level.value}
-        - Previous questions: {', '.join(context.semantic_themes) if context.semantic_themes else 'None'}
         - Expressed goals: {', '.join(context.user_goals) if context.user_goals else 'None'}
         - Current focus area: {context.current_topic or 'General'}
         
@@ -68,16 +67,16 @@ class SemanticCalculatorSelector:
            - Output: Basic coverage recommendation
            - Time: 2-3 minutes
         
-        2. **New Client Detailed Calculator**: 50+ comprehensive questions
+        2. **Client Assessment Tool**: 50+ comprehensive questions
            - Best for: Thorough analysis, client assessments, detailed planning
            - Questions: Demographics, goals, education, special needs, legacy planning
-           - Output: Comprehensive report with multiple scenarios
+           - Output: Comprehensive PDF report with multiple scenarios
            - Time: 15-20 minutes
         
-        3. **Portfolio Analysis Calculator**: Portfolio-focused insurance analysis
+        3. **Portfolio Analysis Tool**: Portfolio-focused insurance analysis
            - Best for: Investment-focused clients, portfolio integration, holistic planning
            - Questions: Asset allocation, risk profile, investment goals, insurance integration
-           - Output: Portfolio analysis with insurance recommendations
+           - Output: Portfolio analysis PDF report with insurance recommendations
            - Time: 10-15 minutes
         
         **Semantic Analysis Required:**
@@ -88,13 +87,13 @@ class SemanticCalculatorSelector:
         - What is their current situation (new client, existing client, portfolio review)?
         
         **Selection Criteria:**
-        - **Quick Calculator**: "I need a fast estimate" | "Just give me a ballpark" | "Quick calculation" | "Basic planning" | "Initial discussion"
-        - **Detailed Calculator**: "Comprehensive analysis" | "Client assessment" | "Detailed planning" | "All factors" | "Thorough review" | "Complete analysis"
-        - **Portfolio Calculator**: "Portfolio integration" | "Investment context" | "Asset allocation" | "Financial picture" | "Holistic planning" | "Portfolio review"
+        - **Quick Calculator**: "I need a fast estimate" | "Just give me a ballpark" | "Quick calculation" | "Basic planning" | "Initial discussion" | "Simple needs"
+        - **Client Assessment Tool**: "Comprehensive analysis" | "Client assessment" | "Detailed planning" | "All factors" | "Thorough review" | "Complete analysis" | "New client"
+        - **Portfolio Analysis Tool**: "Portfolio integration" | "Investment context" | "Asset allocation" | "Financial picture" | "Holistic planning" | "Portfolio review" | "Investment analysis"
         
         **Knowledge Level Considerations:**
-        - Beginner: Likely needs Quick Calculator or Detailed Calculator with guidance
-        - Intermediate: May prefer Detailed Calculator for comprehensive planning
+        - Beginner: Likely needs Quick Calculator or Client Assessment Tool with guidance
+        - Intermediate: May prefer Client Assessment Tool for comprehensive planning
         - Expert: Could use any calculator based on specific needs
         
         **Response Format:**
@@ -287,8 +286,8 @@ class SemanticCalculatorSelector:
             clarification_questions=[
                 "Which type of calculator would you prefer?",
                 "Quick Calculator (5 questions, 2-3 minutes) for immediate estimate?",
-                "Detailed Calculator (50+ questions, 15-20 minutes) for comprehensive analysis?",
-                "Portfolio Calculator (10-15 minutes) for investment-focused analysis?"
+                "Client Assessment Tool (50+ questions, 15-20 minutes) for comprehensive analysis?",
+                "Portfolio Analysis Tool (10-15 minutes) for investment-focused analysis?"
             ],
             expected_outcome=self._get_default_expected_outcome(calculator_type)
         )
@@ -309,8 +308,8 @@ class SemanticCalculatorSelector:
             
             **Is this what you're looking for, or would you prefer:**
             • **Quick Calculator**: 5 questions, immediate estimate (2-3 minutes)
-            • **Detailed Calculator**: Comprehensive analysis with 50+ questions (15-20 minutes)  
-            • **Portfolio Calculator**: Portfolio-focused insurance analysis (10-15 minutes)
+            • **Client Assessment Tool**: Comprehensive analysis with 50+ questions (15-20 minutes)  
+            • **Portfolio Analysis Tool**: Portfolio-focused insurance analysis (10-15 minutes)
             
             Which would you like to use?
             """
@@ -338,13 +337,13 @@ class SemanticCalculatorSelector:
         
         elif calculator_type == CalculatorType.DETAILED:
             return """
-            **Detailed Calculator Process:**
+            **Client Assessment Tool Process:**
             I'll guide you through a comprehensive assessment with detailed questions about your situation, goals, and needs. This will provide a thorough analysis for complete financial planning.
             """
         
         elif calculator_type == CalculatorType.PORTFOLIO:
             return """
-            **Portfolio Calculator Process:**
+            **Portfolio Analysis Tool Process:**
             I'll analyze your insurance needs in the context of your overall financial portfolio, helping you understand how life insurance integrates with your investment strategy.
             """
         

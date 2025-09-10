@@ -417,6 +417,27 @@ class SimpleConversationHistory:
         except Exception as e:
             logger.error(f"📝 SIMPLE HISTORY: Error clearing history: {e}")
     
+    def get_conversation_turns(self) -> List[Dict[str, Any]]:
+        """Get conversation turns in the format expected by follow-up detection"""
+        try:
+            turns = []
+            for turn in self.conversation_turns:
+                turns.append({
+                    "user_query": turn.user_message,
+                    "assistant_response": turn.bot_response,
+                    "timestamp": turn.timestamp.timestamp(),
+                    "turn_number": turn.turn_number
+                })
+            
+            logger.info(f"📝 SIMPLE HISTORY: Retrieved {len(turns)} conversation turns for follow-up detection")
+            return turns
+            
+        except Exception as e:
+            logger.error(f"📝 SIMPLE HISTORY: Error getting conversation turns: {e}")
+            import traceback
+            logger.error(f"📝 SIMPLE HISTORY: Full traceback: {traceback.format_exc()}")
+            return []
+
     def get_history_stats(self) -> Dict[str, Any]:
         """Get statistics about the conversation history"""
         try:

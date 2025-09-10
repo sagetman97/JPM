@@ -8,10 +8,11 @@ interface ChatMessage {
   type: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  files?: File[];
+  files?: { name: string; id: string; type: string; }[];
   qualityScore?: number;
   routingDecision?: any;
   disclaimers?: string[];
+  isDetailedReport?: boolean; // Flag to identify detailed reports
 }
 
 interface ChatResponse {
@@ -33,11 +34,13 @@ export default function RoboAdvisorPage() {
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   };
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export default function RoboAdvisorPage() {
 
   const connectWebSocket = () => {
     try {
-      const wsUrl = `ws://localhost:8001/ws/chat/${sessionId}`;
+      const wsUrl = `${process.env.NEXT_PUBLIC_CHATBOT_WS_URL || 'ws://localhost:8001'}/ws/chat/${sessionId}`;
       console.log('Attempting to connect to WebSocket:', wsUrl);
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -123,6 +126,55 @@ export default function RoboAdvisorPage() {
       
       setMessages(prev => [...prev, assistantMessage]);
       setIsTyping(false);
+      
+      // Check if this is a tool routing message and open the URL in a new tab
+      if (data.routing_decision?.route_type === 'external_tool' && data.routing_decision?.metadata?.tool_url) {
+        const toolUrl = data.routing_decision.metadata.tool_url;
+        console.log('Opening tool URL in new tab:', toolUrl);
+        window.open(toolUrl, '_blank', 'noopener,noreferrer');
+      }
+      
+      // Also check for tool routing in the message content itself as a fallback
+      if (data.content && data.content.includes('**Fallback Link:**')) {
+        const linkMatch = data.content.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) {
+          const toolUrl = linkMatch[2];
+          console.log('Found fallback link in message, opening in new tab:', toolUrl);
+          window.open(toolUrl, '_blank', 'noopener,noreferrer');
+        }
+      }
+    } else if (data.type === 'tool_completion') {
+      // Handle tool completion notification
+      const toolData = data.data;
+      console.log('Tool completion data received:', toolData);
+      
+      // Create summary message for display
+      const summaryMessage: ChatMessage = {
+        id: `tool_summary_${Date.now()}`,
+        type: 'assistant',
+        content: `✅ **${toolData.tool_type.charAt(0).toUpperCase() + toolData.tool_type.slice(1)} Completed!**\n\n${toolData.result_summary}\n\n📄 **Report Available**: You can download the detailed PDF report below.`,
+        timestamp: new Date(),
+        files: [{
+          name: `${toolData.tool_type}_report.pdf`,
+          id: toolData.pdf_id,
+          type: 'application/pdf'
+        }]
+      };
+      
+      // Create detailed report message for conversation history
+      const detailedMessage: ChatMessage = {
+        id: `tool_detailed_${Date.now()}`,
+        type: 'assistant',
+        content: toolData.detailed_report || 'Detailed report not available',
+        timestamp: new Date(),
+        isDetailedReport: true // Flag to identify detailed reports
+      };
+      
+      console.log('Created completion messages:', { summaryMessage, detailedMessage });
+      
+      // Add both messages to conversation history
+      setMessages(prev => [...prev, summaryMessage, detailedMessage]);
+      setIsTyping(false);
     } else if (data.type === 'error') {
       const errorMessage: ChatMessage = {
         id: `error_${Date.now()}`,
@@ -133,6 +185,35 @@ export default function RoboAdvisorPage() {
       
       setMessages(prev => [...prev, errorMessage]);
       setIsTyping(false);
+    }
+  };
+
+  // Function to download PDFs
+  const downloadPDF = async (pdfId: string, filename: string) => {
+    console.log('downloadPDF called with:', { pdfId, filename });
+    try {
+      const url = `http://localhost:8001/api/chat/pdf/${pdfId}`;
+      console.log('Fetching PDF from URL:', url);
+      const response = await fetch(url);
+      console.log('Response status:', response.status);
+      if (response.ok) {
+        const blob = await response.blob();
+        console.log('Blob created, size:', blob.size);
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        console.log('Clicking download link');
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(a);
+        console.log('Download completed');
+      } else {
+        console.error('Failed to download PDF:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
     }
   };
 
@@ -358,9 +439,15 @@ export default function RoboAdvisorPage() {
           </div>
 
           {/* Messages Area - Now Much Taller */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-gray-50 to-white">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-gray-50 to-white">
             {/* Messages */}
-            {messages.map((message) => (
+            {messages.map((message) => {
+              // Hide detailed reports from UI but keep them in conversation history
+              if (message.isDetailedReport) {
+                return null;
+              }
+              
+              return (
               <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-5 py-4 ${
                   message.type === 'user' 
@@ -387,6 +474,7 @@ export default function RoboAdvisorPage() {
                               .replace(/### (.*?)\n/g, '<h3 class="text-lg font-semibold mb-2">$1</h3>')
                               .replace(/## (.*?)\n/g, '<h2 class="text-xl font-semibold mb-3">$1</h2>')
                               .replace(/# (.*?)\n/g, '<h1 class="text-2xl font-bold mb-4">$1</h1>')
+                              .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
                               .replace(/\n\n/g, '<br><br>')
                               .replace(/\n/g, '<br>')
                           }} />
@@ -402,6 +490,30 @@ export default function RoboAdvisorPage() {
                           ))}
                         </div>
                       )}
+                      {/* Show PDF download link if message has files */}
+                      {message.files && message.files.length > 0 && (() => {
+                        console.log('Rendering files for message:', message.files);
+                        return (
+                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="text-xs text-blue-800 font-medium mb-2">📄 Available Reports:</div>
+                          {message.files.map((file, index) => (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                console.log('Download button clicked for file:', file);
+                                downloadPDF(file.id, file.name);
+                              }}
+                              className="inline-flex items-center text-blue-600 hover:text-blue-800 underline text-sm font-medium mr-4 mb-1"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              Download {file.name}
+                            </button>
+                          ))}
+                        </div>
+                        );
+                      })()}
                       {message.qualityScore && (
                         <div className="mt-2 text-xs text-gray-500">
                           Response Quality: {(message.qualityScore * 100).toFixed(0)}%
@@ -411,7 +523,8 @@ export default function RoboAdvisorPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
             
             {/* Typing Indicator */}
             {isTyping && (
@@ -432,9 +545,6 @@ export default function RoboAdvisorPage() {
                 </div>
               </div>
             )}
-            
-            {/* Scroll target for auto-scroll */}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Input Area */}

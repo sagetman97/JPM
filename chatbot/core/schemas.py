@@ -1,7 +1,11 @@
+from dataclasses import dataclass
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
+
+if TYPE_CHECKING:
+    from .universal_context_selector import ContextSelectionResult
 
 class MessageType(str, Enum):
     """Types of chat messages"""
@@ -21,6 +25,9 @@ class IntentCategory(str, Enum):
     CALCULATOR_SELECTION_CHOICE = "calculator_selection_choice"
     CALCULATOR_CHOICE_SELECTED = "calculator_choice_selected"
     CONVERSATION_MANAGEMENT = "conversation_management"
+    REPORT_QUESTION = "report_question"
+    QUICK_CALCULATOR_FOLLOW_UP = "quick_calculator_follow_up"
+    FILE_ANALYSIS = "file_analysis"
 
 class CalculatorType(str, Enum):
     """Types of insurance calculators"""
@@ -45,6 +52,52 @@ class KnowledgeLevel(str, Enum):
     INTERMEDIATE = "intermediate"
     EXPERT = "expert"
 
+@dataclass
+class FollowUpResult:
+    """Result of follow-up detection analysis"""
+    is_follow_up: bool
+    related_topics: List[str]
+    context_relevance: float
+    suggested_context_window: int
+    reasoning: str
+    confidence: float = 0.0
+    referenced_item: Optional[str] = None  # What the user is referring to (portfolio_report, calculation, etc.)
+
+@dataclass
+class ContextValidationResult:
+    """Result of context validation"""
+    is_valid: bool
+    relevance_score: float  # 0.0 to 1.0
+    quality_score: float    # 0.0 to 1.0
+    confidence: float       # 0.0 to 1.0
+    issues: List[str]       # List of validation issues
+    recommendations: List[str]  # List of improvement recommendations
+    fallback_available: bool    # Whether fallback context is available
+
+@dataclass
+class ContextMetrics:
+    """Context selection metrics for monitoring"""
+    selection_accuracy: float = 0.0
+    average_relevance: float = 0.0
+    average_quality: float = 0.0
+    fallback_usage: float = 0.0
+    validation_failures: int = 0
+    total_selections: int = 0
+
+@dataclass
+class ContextSelectionResult:
+    """Result of universal context selection"""
+    context_type: str  # "follow_up", "standard", "structured_data"
+    conversation_history: Optional[List[Dict[str, Any]]] = None
+    relevant_turn: Optional[Dict[str, Any]] = None
+    follow_up_result: Optional['FollowUpResult'] = None
+    conversation_context: Optional['ConversationContext'] = None
+    intent_result: Optional['IntentResult'] = None
+    referenced_item: Optional[str] = None
+    context_summary: Optional[str] = None
+    context_selector: Optional[Any] = None  # Reference to the selector instance
+    validation_result: Optional['ContextValidationResult'] = None  # Context validation result
+
 class ChatMessage(BaseModel):
     """Individual chat message"""
     id: str = Field(..., description="Unique message ID")
@@ -65,6 +118,7 @@ class IntentResult(BaseModel):
     needs_external_search: bool = Field(False, description="Whether this query needs external search supplementation")
     needs_calculator_selection: bool = Field(False, description="Whether user needs to choose calculator type")
     suggested_calculator: Optional[str] = Field(None, description="Suggested calculator type based on semantic analysis")
+    metadata: Optional[Dict[str, Any]] = Field(default={}, description="Additional metadata for follow-up detection and context")
 
 class RoutingDecision(BaseModel):
     """Routing decision for a query"""
@@ -80,7 +134,6 @@ class ConversationContext(BaseModel):
     session_id: str = Field(..., description="Unique session identifier")
     user_id: Optional[str] = Field(None, description="User identifier")
     knowledge_level: KnowledgeLevel = Field(default=KnowledgeLevel.BEGINNER, description="User's knowledge level")
-    semantic_themes: List[str] = Field(default=[], description="Themes from conversation")
     user_goals: List[str] = Field(default=[], description="User's expressed goals")
     current_topic: Optional[str] = Field(default=None, description="Current conversation topic")
     previous_calculations: List[Dict[str, Any]] = Field(default=[], description="Previous calculation results")
@@ -99,6 +152,11 @@ class ConversationContext(BaseModel):
     # NEW: Conversation memory system
     conversation_memory: Optional[Any] = Field(default=None, exclude=True, description="Conversation memory system for context awareness")
     simple_history: Optional[Any] = Field(default=None, exclude=True, description="Simple conversation history for conversation management")
+    
+    # NEW: Follow-up detection fields
+    follow_up_result: Optional[FollowUpResult] = Field(default=None, description="Result of follow-up detection")
+    suggested_context_window: Optional[int] = Field(default=1, description="Suggested context window for follow-ups")
+    last_follow_up_topics: List[str] = Field(default=[], description="Topics from last follow-up detection")
 
 class RAGResult(BaseModel):
     """Result from RAG system"""
@@ -175,6 +233,7 @@ class ChatSession(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Session creation time")
     last_activity: datetime = Field(default_factory=datetime.utcnow, description="Last activity time")
     status: str = Field(default="active", description="Session status")
+    uploaded_files: List[Dict[str, Any]] = Field(default=[], description="Uploaded files in this session")
     
     def add_message(self, message: ChatMessage):
         """Add a message to the session"""
@@ -191,4 +250,13 @@ class ChatSession(BaseModel):
             if hasattr(self.context, key):
                 setattr(self.context, key, value)
         self.context.updated_at = datetime.utcnow()
-        self.last_activity = datetime.utcnow() 
+        self.last_activity = datetime.utcnow()
+    
+    def add_uploaded_file(self, file_data: Dict[str, Any]):
+        """Add an uploaded file to the session"""
+        self.uploaded_files.append(file_data)
+        self.last_activity = datetime.utcnow()
+    
+    def get_uploaded_files(self) -> List[Dict[str, Any]]:
+        """Get all uploaded files in this session"""
+        return self.uploaded_files 

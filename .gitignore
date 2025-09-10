@@ -136,10 +136,29 @@ new_response.txt
 response.txt
 temp_complex_base64.txt
 
+# Generated PDFs and uploads (temporary files)
+generated_pdfs/
+uploads/
+*.pdf
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
 # Documentation that might contain sensitive info
-RAG Documents/
-valuable_code_copy/
+# RAG Documents/ - REMOVED: We need this folder in the repo
+# valuable_code_copy/ - REMOVED: This might contain important code
 
 # Chatbot specific files (if not needed in main repo)
-start_chatbot.sh
-CHATBOT_README.md 
+# start_chatbot.sh - REMOVED: We need this startup script
+# CHATBOT_README.md - REMOVED: We need this documentation 

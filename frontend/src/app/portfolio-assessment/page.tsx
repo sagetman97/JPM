@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { useSearchParams } from "next/navigation";
 
 // Utility functions
 function formatCurrency(val: string) {
@@ -12,9 +13,13 @@ function formatCurrency(val: string) {
   return num.toLocaleString();
 }
 
-function parseCurrency(val: string) {
+function parseCurrency(val: string | number) {
   if (!val) return 0;
-  return parseInt(val.replace(/[^\d]/g, "")) || 0;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    return parseInt(val.replace(/[^\d]/g, "")) || 0;
+  }
+  return 0;
 }
 
 // Portfolio data interfaces
@@ -185,6 +190,142 @@ export default function PortfolioAssessmentPage() {
   const [editableSavings, setEditableSavings] = useState<number | null>(null);
   const [cashValueProjection, setCashValueProjection] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Session integration state
+  const [externalSessionId, setExternalSessionId] = useState<string | null>(null);
+  const [isChatbotSession, setIsChatbotSession] = useState(false);
+  // No completion message needed
+  
+  // Data injection for PDF generation
+  const [injectedData, setInjectedData] = useState<any>(null);
+  const [isDataInjected, setIsDataInjected] = useState(false);
+  const [isPdfGenerationMode, setIsPdfGenerationMode] = useState(false);
+
+  // Handle data injection from localStorage (for PDF generation)
+  useEffect(() => {
+    const portfolioData = localStorage.getItem('portfolio_data');
+    const sessionId = localStorage.getItem('portfolio_session_id');
+    const fromChatbot = localStorage.getItem('portfolio_from_chatbot');
+    const pdfGeneration = localStorage.getItem('portfolio_pdf_generation');
+    
+    if (portfolioData && fromChatbot === 'true') {
+      try {
+        const data = JSON.parse(portfolioData);
+        setInjectedData(data);
+        setIsDataInjected(true);
+        
+        // Set the form data and trigger analysis
+        setForm(data);
+        
+        // If this is for PDF generation, set PDF generation mode and auto-trigger analysis
+        if (pdfGeneration === 'true') {
+          setIsPdfGenerationMode(true);
+          setIsChatbotSession(false); // Override chatbot session to show results
+          console.log('PDF generation mode - will trigger analysis and show results');
+          
+          // Auto-trigger analysis after a short delay to ensure form is set
+          setTimeout(() => {
+            console.log('PDF generation mode - auto-triggering analysis');
+            handleCalculate();
+          }, 1000);
+        } else {
+          setStep(9); // Go to analysis step for normal flow
+        }
+        
+        // Clear the localStorage data
+        localStorage.removeItem('portfolio_data');
+        localStorage.removeItem('portfolio_session_id');
+        localStorage.removeItem('portfolio_from_chatbot');
+        localStorage.removeItem('portfolio_pdf_generation');
+        
+        console.log('Portfolio data injected for PDF generation - will trigger analysis');
+      } catch (error) {
+        console.error('Error parsing injected portfolio data:', error);
+      }
+    }
+  }, []);
+
+  // Auto-close tab after PDF generation
+  useEffect(() => {
+    if (isPdfGenerationMode && result) {
+      console.log('PDF generation mode - will auto-close tab in 10 seconds');
+      // Wait for PDF generation to complete, then close tab
+      const timer = setTimeout(() => {
+        console.log('Auto-closing tab after PDF generation');
+        window.close();
+      }, 10000); // 10 second delay to allow PDF generation
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isPdfGenerationMode, result]);
+
+  // Handle session ID from URL parameters
+  useEffect(() => {
+    const initializeSession = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const sessionId = searchParams.get('session_id');
+      const source = searchParams.get('source');
+      const knowledgeLevel = searchParams.get('knowledge_level');
+      const step = searchParams.get('step');
+      const analysisData = searchParams.get('analysis_data');
+      
+      console.log('URL parameters:', { sessionId, source, knowledgeLevel, step, hasAnalysisData: !!analysisData, fullUrl: window.location.href });
+      
+      // Check if this is a chatbot-initiated session by looking for chatbot metadata
+      const isFromChatbot = source === 'robo_advisor_chatbot' || knowledgeLevel || sessionId;
+      
+      if (isFromChatbot) {
+        setExternalSessionId(sessionId);
+        setIsChatbotSession(true);
+        console.log('Portfolio assessment opened from chatbot with metadata:', { sessionId, source, knowledgeLevel });
+        
+        // Check if we have analysis data to restore
+        if (step && analysisData) {
+          try {
+            const decodedData = JSON.parse(atob(analysisData));
+            console.log('Restoring analysis state from URL:', decodedData);
+            
+            setForm(decodedData.formData);
+            setResult(decodedData.result);
+            setStep(parseInt(step)); // Restore the actual step (10 for results)
+            
+            console.log('Analysis state restored successfully');
+          } catch (error) {
+            console.error('Failed to restore analysis data from URL:', error);
+            setStep(9); // Fallback to analysis step
+          }
+        } else {
+            // Check if we have analysis data stored in backend for this session
+            if (sessionId) {
+              try {
+                const response = await fetch(`http://localhost:8000/api/pdf/portfolio-data/${sessionId}`);
+                if (response.ok) {
+                  const storedData = await response.json();
+                  console.log('Restoring analysis state from backend:', storedData);
+                  
+                  setForm(storedData.result_data);
+                  setResult(storedData.result_data);
+                  setStep(10); // Show results page
+                  
+                  console.log('Analysis state restored from backend successfully');
+                } else {
+                  setStep(1); // Start at file upload step for new chatbot sessions
+                }
+              } catch (error) {
+                console.error('Failed to restore analysis data from backend:', error);
+                setStep(1); // Start at file upload step for new chatbot sessions
+              }
+            } else {
+              setStep(1); // Start at file upload step for new chatbot sessions
+            }
+          }
+      } else {
+        console.log('Portfolio assessment opened directly (not from chatbot)');
+      }
+    };
+    
+    initializeSession();
+  }, []);
 
   // Step definitions
   const steps = [
@@ -862,8 +1003,46 @@ export default function PortfolioAssessmentPage() {
         const life_insurance = analysis.life_insurance_needs || {};
         const portfolio_metrics = analysis.portfolio_metrics || {};
         
+        // Create the result structure that preserves the analysis wrapper for chatbot
         const transformedResult = {
-          recommended_coverage: life_insurance.total_need || 0, // Access directly from object
+          // Include original form data for PDF generation
+          client_name: form.client_name,
+          age: parseInt(form.age) || 35,
+          marital_status: form.marital_status,
+          dependents: parseInt(form.dependents) || 0,
+          health_status: form.health_status,
+          tobacco_use: form.tobacco_use,
+          
+          // Portfolio data
+          total_assets: parseCurrency(form.total_assets),
+          investable_portfolio: parseCurrency(form.investable_portfolio),
+          total_net_worth: parseCurrency(form.total_net_worth),
+          liquid_assets: parseCurrency(form.liquid_assets),
+          monthly_income: parseCurrency(form.monthly_income),
+          monthly_expenses: parseCurrency(form.monthly_expenses),
+          
+          // Account details
+          retirement_accounts: parseCurrency(form.retirement_accounts),
+          taxable_accounts: parseCurrency(form.taxable_accounts),
+          education_accounts: parseCurrency(form.education_accounts),
+          liabilities_total: parseCurrency(form.liabilities_total),
+          
+          // Risk profile
+          risk_tolerance: form.risk_tolerance,
+          investment_horizon: parseInt(form.investment_horizon) || 20,
+          retirement_target: parseCurrency(form.retirement_target),
+          legacy_goals: parseCurrency(form.legacy_goals),
+          
+          // Insurance data
+          current_life_insurance: parseCurrency(form.current_life_insurance),
+          individual_life: parseCurrency(form.individual_life),
+          group_life: parseCurrency(form.group_life),
+          income_replacement_years: parseInt(form.income_replacement_years) || 10,
+          funeral_expenses: parseCurrency(form.funeral_expenses),
+          special_needs: form.special_needs,
+          
+          // Analysis results
+          recommended_coverage: life_insurance.total_need || 0,
           gap: life_insurance.coverage_gap || 0,
           duration_years: life_insurance.duration_years || 20,
           product_recommendation: life_insurance.product_recommendation || 'JPM TermVest+',
@@ -874,6 +1053,13 @@ export default function PortfolioAssessmentPage() {
           risk_score: portfolio_metrics.risk_score || 50,
 
           asset_allocation: portfolio_metrics.asset_allocation_percentages || {},
+          
+          // Asset allocation in dollar amounts (for chatbot context)
+          equity: parseCurrency(form.equity_allocation),
+          fixed_income: parseCurrency(form.fixed_income_allocation),
+          real_estate: parseCurrency(form.real_estate_allocation),
+          cash: parseCurrency(form.cash_allocation),
+          alternative_investments: parseCurrency(form.alternative_allocation),
 
           key_findings: analysis.key_findings || [],
           risk_analysis: analysis.risk_analysis || [],
@@ -898,15 +1084,63 @@ export default function PortfolioAssessmentPage() {
             coverage_gap: life_insurance.coverage_gap || 0
           },
 
-          processing_time: data.processing_time_seconds || 0
+          processing_time: data.processing_time_seconds || 0,
+          
+          // PRESERVE THE ANALYSIS STRUCTURE FOR CHATBOT
+          analysis: analysis
         };
-        setAnalysisProgress("Analysis complete!");
-        setResult(transformedResult);
+        
+        // Handle different session types
+        console.log('Checking session type:', { isChatbotSession, isPdfGenerationMode, externalSessionId });
+        
+        if (isPdfGenerationMode) {
+          // PDF generation mode - show results and send completion signal
+          console.log('PDF generation mode - showing results and sending completion signal');
+          setResult(transformedResult);
+          setAnalysisProgress("Analysis complete!");
+          
+          // Send completion signal to PDF generator
+          setTimeout(() => {
+            // Set the signal that PDF generator can detect
+            (window as any).analysisCompleteSignal = true;
+            
+            window.postMessage({ 
+              type: 'ANALYSIS_COMPLETE', 
+              sessionId: externalSessionId,
+              data: transformedResult 
+            }, '*');
+            console.log('Analysis completion signal sent');
+          }, 2000); // Give time for charts to render
+          
+        } else {
+          // Both normal and chatbot sessions - just show results
+          console.log('Showing results for session type:', isChatbotSession ? 'chatbot' : 'normal');
+          setAnalysisProgress("Analysis complete!");
+          setResult(transformedResult);
+          
+          // Update URL with analysis data for chatbot sessions
+          if (isChatbotSession) {
+            updateUrlWithAnalysis({
+              formData: form,
+              result: transformedResult,
+              step: 10
+            });
+          }
+        }
         
         // Debug logging to see what data we received
         console.log("Frontend received analysis data:", analysis);
         console.log("Frontend transformed result:", transformedResult);
         console.log("Asset allocation data:", transformedResult.asset_allocation);
+        
+        // For chatbot sessions, trigger PDF generation after report is fully rendered
+        if (isChatbotSession) {
+          // Wait for report to be fully rendered (charts, etc.)
+          setTimeout(async () => {
+            console.log('Report should be rendered now, triggering PDF generation');
+            await handleFormCompletion(transformedResult);
+          }, 8000); // Give time for charts and content to fully render
+        }
         
         // Clear progress after a short delay
         setTimeout(() => setAnalysisProgress(""), 2000);
@@ -939,6 +1173,123 @@ export default function PortfolioAssessmentPage() {
       setError(err.message || "Unknown error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Update URL with analysis data for chatbot sessions
+  const updateUrlWithAnalysis = (analysisData: any) => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const source = searchParams.get('source');
+    
+    if (source === 'robo_advisor_chatbot') {
+      try {
+        const encodedData = btoa(JSON.stringify(analysisData));
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('step', '10'); // Results step
+        currentUrl.searchParams.set('analysis_data', encodedData);
+        
+        // Use replaceState to avoid adding to browser history
+        window.history.replaceState({}, '', currentUrl.toString());
+        console.log('URL updated with analysis data for chatbot session');
+      } catch (error) {
+        console.error('Failed to update URL with analysis data:', error);
+      }
+    }
+  };
+
+  // Handle PDF generation for chatbot sessions
+  const handleFormCompletion = async (result: any) => {
+    try {
+      console.log('Triggering PDF generation for chatbot session:', {
+        external_session_id: externalSessionId,
+        tool_type: 'portfolio'
+      });
+      
+      // If we don't have a session ID, do nothing
+      if (!externalSessionId) {
+        console.log('No session ID available, skipping PDF generation');
+        return;
+      }
+      
+      // Store analysis data in backend for state persistence
+      const storeResponse = await fetch('http://localhost:8000/api/pdf/portfolio-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: externalSessionId,
+          result_data: result,
+          analysis: result // Include analysis data as well
+        })
+      });
+      
+      console.log('Data storage response status:', storeResponse.status);
+      
+      if (storeResponse.ok) {
+        console.log('Analysis data stored in backend successfully');
+      } else {
+        console.error('Failed to store analysis data in backend:', storeResponse.status);
+      }
+
+      // Store comprehensive report context for chatbot
+      const reportContextResponse = await fetch('http://localhost:8000/api/report-context/portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: externalSessionId,
+          formData: form,
+          result: result
+        })
+      });
+      
+      console.log('Report context storage response status:', reportContextResponse.status);
+      
+      if (reportContextResponse.ok) {
+        console.log('Report context stored successfully for chatbot');
+      } else {
+        console.error('Failed to store report context:', reportContextResponse.status);
+      }
+      
+      // Update URL with analysis data for PDF generator
+      updateUrlWithAnalysis({
+        formData: form,
+        result: result,
+        step: 10
+      });
+      
+      // Notify the chatbot that PDF generation is ready
+      const notifyResponse = await fetch('http://localhost:8001/api/chat/tool-completion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          external_session_id: externalSessionId,
+          tool_type: 'portfolio',
+          result_data: {
+            formData: form,
+            result: result,
+            step: 10
+          },
+          pdf_url: window.location.href // Use current URL with analysis data
+        })
+      });
+      
+      console.log('Chatbot notification response status:', notifyResponse.status);
+      
+      if (notifyResponse.ok) {
+        console.log('PDF generation process initiated successfully');
+      } else {
+        console.error('Failed to notify chatbot:', notifyResponse.status);
+      }
+      
+      // Close the tab after a short delay
+      setTimeout(() => {
+        console.log('Closing chatbot tab after PDF generation');
+        window.close();
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Failed to trigger PDF generation:', error);
+      // Still close tab even if there's an error
+      setTimeout(() => window.close(), 3000);
     }
   };
 
@@ -1106,6 +1457,8 @@ export default function PortfolioAssessmentPage() {
   };
 
   
+
+  // No completion message needed - show normal interface
 
   return (
     <div className="w-full flex flex-col items-center min-h-[70vh] text-black">
@@ -1958,7 +2311,7 @@ export default function PortfolioAssessmentPage() {
         </div>
       ) : (
         /* Results Display */
-        <div className="w-full px-12 pb-12">
+        <div className="w-full px-12 pb-12" data-testid="portfolio-results">
           <div className="max-w-4xl mx-auto space-y-6">
 
             {/* Summary Cards */}
