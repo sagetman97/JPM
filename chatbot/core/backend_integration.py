@@ -5,6 +5,7 @@ Handles communication with the portfolio analysis backend.
 
 import asyncio
 import logging
+import os
 from typing import Dict, Any, List, Optional
 import httpx
 from .schemas import ConversationContext
@@ -16,7 +17,17 @@ class BackendAPIIntegrator:
     """Integrates with existing backend APIs for calculations and analysis"""
     
     def __init__(self):
-        self.base_url = config.backend_api_url  # Backend API base URL from config
+        # Get backend URL with fallback logic
+        self.base_url = config.backend_api_url
+        print(f"🔧 BackendAPIIntegrator initialized with URL: {self.base_url}")
+        
+        # Double-check environment variable
+        env_backend_url = os.getenv("BACKEND_API_URL")
+        if env_backend_url and env_backend_url != self.base_url:
+            print(f"⚠️ Environment variable mismatch! Config: {self.base_url}, Env: {env_backend_url}")
+            self.base_url = env_backend_url
+            print(f"🔧 Using environment variable URL: {self.base_url}")
+        
         self.client = httpx.AsyncClient(timeout=30.0)
     
     async def calculate_life_insurance_needs(self, data: Dict[str, Any]) -> Dict[str, Any]:

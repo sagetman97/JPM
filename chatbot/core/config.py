@@ -30,6 +30,12 @@ class ChatbotConfig(BaseSettings):
     # Backend API Configuration
     backend_api_url: str = os.getenv("BACKEND_API_URL", "http://localhost:8000")
     
+    def __init__(self):
+        super().__init__()
+        # Debug: Log the actual backend URL being used
+        print(f"🔧 Backend API URL configured as: {self.backend_api_url}")
+        print(f"🔧 BACKEND_API_URL env var: {os.getenv('BACKEND_API_URL', 'NOT_SET')}")
+    
     # RAG Configuration
     rag_documents_path: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "RAG Documents")
     chunk_size: int = 1000
