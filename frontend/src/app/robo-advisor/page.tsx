@@ -192,7 +192,8 @@ export default function RoboAdvisorPage() {
   const downloadPDF = async (pdfId: string, filename: string) => {
     console.log('downloadPDF called with:', { pdfId, filename });
     try {
-      const url = `http://localhost:8001/api/chat/pdf/${pdfId}`;
+      const chatbotUrl = process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001';
+      const url = `${chatbotUrl}/api/chat/pdf/${pdfId}`;
       console.log('Fetching PDF from URL:', url);
       const response = await fetch(url);
       console.log('Response status:', response.status);
@@ -246,7 +247,8 @@ export default function RoboAdvisorPage() {
     } else {
       // Fallback to HTTP API if WebSocket is not available
       try {
-        const response = await fetch('http://localhost:8001/api/chat/process', {
+        const chatbotUrl = process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001';
+        const response = await fetch(`${chatbotUrl}/api/chat/process`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -322,7 +324,7 @@ export default function RoboAdvisorPage() {
           formData.append('file', file);
           formData.append('session_id', sessionId);
           
-          const uploadResponse = await fetch('http://localhost:8001/api/chat/file/upload', {
+          const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001'}/api/chat/file/upload`, {
             method: 'POST',
             body: formData,
           });
@@ -372,7 +374,7 @@ export default function RoboAdvisorPage() {
           formData.append('file', file);
           formData.append('session_id', sessionId);
           
-          const uploadResponse = await fetch('http://localhost:8001/api/chat/file/upload', {
+          const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001'}/api/chat/file/upload`, {
             method: 'POST',
             body: formData,
           });

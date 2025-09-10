@@ -298,7 +298,8 @@ export default function PortfolioAssessmentPage() {
             // Check if we have analysis data stored in backend for this session
             if (sessionId) {
               try {
-                const response = await fetch(`http://localhost:8000/api/pdf/portfolio-data/${sessionId}`);
+                const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+                const response = await fetch(`${apiBaseUrl}/api/pdf/portfolio-data/${sessionId}`);
                 if (response.ok) {
                   const storedData = await response.json();
                   console.log('Restoring analysis state from backend:', storedData);
@@ -1212,7 +1213,8 @@ export default function PortfolioAssessmentPage() {
       }
       
       // Store analysis data in backend for state persistence
-      const storeResponse = await fetch('http://localhost:8000/api/pdf/portfolio-data', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const storeResponse = await fetch(`${apiBaseUrl}/api/pdf/portfolio-data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1231,7 +1233,8 @@ export default function PortfolioAssessmentPage() {
       }
 
       // Store comprehensive report context for chatbot
-      const reportContextResponse = await fetch('http://localhost:8000/api/report-context/portfolio', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const reportContextResponse = await fetch(`${apiBaseUrl}/api/report-context/portfolio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1257,7 +1260,8 @@ export default function PortfolioAssessmentPage() {
       });
       
       // Notify the chatbot that PDF generation is ready
-      const notifyResponse = await fetch('http://localhost:8001/api/chat/tool-completion', {
+      const chatbotUrl = process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001';
+      const notifyResponse = await fetch(`${chatbotUrl}/api/chat/tool-completion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

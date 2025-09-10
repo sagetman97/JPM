@@ -505,7 +505,8 @@ export default function AssessmentPage() {
     if (!externalSessionId) return;
     
     try {
-      const reportContextResponse = await fetch('http://localhost:8000/api/report-context/assessment', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const reportContextResponse = await fetch(`${apiBaseUrl}/api/report-context/assessment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -540,7 +541,8 @@ export default function AssessmentPage() {
       }
       
       // Store analysis data in backend for state persistence
-      const storeResponse = await fetch('http://localhost:8000/api/report-context/assessment', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const storeResponse = await fetch(`${apiBaseUrl}/api/report-context/assessment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -559,7 +561,8 @@ export default function AssessmentPage() {
       }
 
       // Store comprehensive report context for chatbot
-      const reportContextResponse = await fetch('http://localhost:8000/api/report-context/assessment', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const reportContextResponse = await fetch(`${apiBaseUrl}/api/report-context/assessment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -585,7 +588,8 @@ export default function AssessmentPage() {
       });
       
       // Notify the chatbot that PDF generation is ready with comprehensive data
-      const notifyResponse = await fetch('http://localhost:8001/api/chat/tool-completion', {
+      const chatbotUrl = process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001';
+      const notifyResponse = await fetch(`${chatbotUrl}/api/chat/tool-completion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
