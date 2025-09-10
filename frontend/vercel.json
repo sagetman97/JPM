@@ -1,6 +1,11 @@
 {
-  "buildCommand": "npm install && npm run build",
+  "buildCommand": "npm ci --legacy-peer-deps && npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "npm install --legacy-peer-deps"
+  "installCommand": "npm ci --legacy-peer-deps --prefer-offline",
+  "functions": {
+    "app/**": {
+      "runtime": "nodejs18.x"
+    }
+  }
 }
