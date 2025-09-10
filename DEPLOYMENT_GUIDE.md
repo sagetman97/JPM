@@ -67,10 +67,10 @@ When creating services, you'll see these fields in the Render form:
    - **Auto-Deploy**: `On Commit` (enabled)
 6. **Environment Variables** (click "Add Environment Variable" for each):
    - `API_HOST`: `0.0.0.0`
-   - `API_PORT`: `$PORT` (Render will set this automatically)
    - `ALLOWED_ORIGINS`: `https://your-vercel-app.vercel.app` (update with actual Vercel URL later)
    - `OPENAI_API_KEY`: `your-openai-key-here`
    - `SECRET_KEY`: `your-secret-key-here` (generate a random string)
+   - **Note**: `PORT` is automatically provided by Render - don't set it manually
 7. Click "Deploy web service"
 8. Wait for deployment (5-10 minutes)
 9. Copy the service URL (e.g., `https://portfolio-tools.onrender.com`)
