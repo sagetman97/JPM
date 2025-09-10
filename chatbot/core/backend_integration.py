@@ -16,7 +16,7 @@ class BackendAPIIntegrator:
     """Integrates with existing backend APIs for calculations and analysis"""
     
     def __init__(self):
-        self.base_url = "http://localhost:8000"  # Backend API base URL
+        self.base_url = config.backend_api_url  # Backend API base URL from config
         self.client = httpx.AsyncClient(timeout=30.0)
     
     async def calculate_life_insurance_needs(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -26,11 +26,11 @@ class BackendAPIIntegrator:
             # Determine which endpoint to use based on calculation type
             if data.get("calculation_type") == "quick_estimate":
                 # Simple chatbot calculation - use quick endpoint
-                endpoint = "http://localhost:8000/api/calculate-needs-quick"
+                endpoint = f"{self.base_url}/api/calculate-needs-quick"
                 print(f"Using quick endpoint for chatbot calculation: {endpoint}")
             else:
                 # Complex calculation - use detailed endpoint
-                endpoint = "http://localhost:8000/api/calculate-needs-detailed"
+                endpoint = f"{self.base_url}/api/calculate-needs-detailed"
                 print(f"Using detailed endpoint for complex calculation: {endpoint}")
             
             # Call the backend API endpoint

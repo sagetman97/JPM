@@ -27,6 +27,9 @@ class ChatbotConfig(BaseSettings):
     # Tavily Configuration
     tavily_api_key: str = os.getenv("TAVILY_API_KEY", "")
     
+    # Backend API Configuration
+    backend_api_url: str = os.getenv("BACKEND_API_URL", "http://localhost:8000")
+    
     # RAG Configuration
     rag_documents_path: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "RAG Documents")
     chunk_size: int = 1000
