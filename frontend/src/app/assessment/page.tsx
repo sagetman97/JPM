@@ -540,8 +540,10 @@ export default function AssessmentPage() {
         return;
       }
       
-      // Store analysis data in backend for state persistence
+      // Get API base URL once for all backend calls
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      
+      // Store analysis data in backend for state persistence
       const storeResponse = await fetch(`${apiBaseUrl}/api/report-context/assessment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -561,7 +563,6 @@ export default function AssessmentPage() {
       }
 
       // Store comprehensive report context for chatbot
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
       const reportContextResponse = await fetch(`${apiBaseUrl}/api/report-context/assessment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
