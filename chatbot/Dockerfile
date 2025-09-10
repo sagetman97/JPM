@@ -2,12 +2,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies for Playwright
+# Install system dependencies for Playwright and build tools
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --upgrade pip setuptools wheel
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
