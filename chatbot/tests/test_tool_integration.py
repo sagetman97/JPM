@@ -88,7 +88,8 @@ async def test_tool_integration():
         async with httpx.AsyncClient() as client:
             try:
                 # Test portfolio analysis endpoint
-                response = await client.get("http://localhost:8000/api/health")
+                backend_url = os.getenv("BACKEND_API_URL", "http://localhost:8000")
+                response = await client.get(f"{backend_url}/api/health")
                 if response.status_code == 200:
                     logger.info("✅ Portfolio tools API (port 8000) is accessible")
                     logger.info(f"  - Response: {response.json()}")

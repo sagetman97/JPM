@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 class SimplePDFGenerator:
     """Simple PDF generator using screenshot approach"""
     
-    def __init__(self, frontend_url: str = "http://localhost:3000", output_dir: str = "chatbot/generated_pdfs"):
-        self.frontend_url = frontend_url
+    def __init__(self, frontend_url: str = None, output_dir: str = "chatbot/generated_pdfs"):
+        self.frontend_url = frontend_url or os.getenv("FRONTEND_URL", "http://localhost:3000")
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
