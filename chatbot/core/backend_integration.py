@@ -20,7 +20,7 @@ class BackendAPIIntegrator:
         self.client = httpx.AsyncClient(timeout=30.0)
     
     async def calculate_life_insurance_needs(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Calculate life insurance needs using the backend API"""
+        """Calculate life insurance needs using the backend API with retry logic for sleeping services"""
         
         try:
             # Determine which endpoint to use based on calculation type
@@ -33,18 +33,46 @@ class BackendAPIIntegrator:
                 endpoint = f"{self.base_url}/api/calculate-needs-detailed"
                 print(f"Using detailed endpoint for complex calculation: {endpoint}")
             
-            # Call the backend API endpoint
+            # Call the backend API endpoint with retry logic for sleeping Render services
+            import asyncio
+            
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    endpoint,
-                    json=data,
-                    timeout=30.0
-                )
+                max_retries = 3
+                base_delay = 5  # seconds
                 
-                if response.status_code == 200:
-                    return response.json()
-                else:
-                    return {"error": f"Backend API error: {response.status_code}"}
+                for attempt in range(max_retries):
+                    try:
+                        logger.info(f"🔄 Attempt {attempt + 1}/{max_retries} calling {endpoint}")
+                        response = await client.post(
+                            endpoint,
+                            json=data,
+                            timeout=90.0  # Increased from 30s to 90s for Render cold start
+                        )
+                        
+                        if response.status_code == 200:
+                            logger.info(f"✅ Backend API call successful on attempt {attempt + 1}")
+                            return response.json()
+                        else:
+                            logger.warning(f"⚠️ Backend API returned {response.status_code} on attempt {attempt + 1}")
+                            if attempt < max_retries - 1:
+                                await asyncio.sleep(base_delay * (2 ** attempt))  # Exponential backoff
+                                continue
+                            return {"error": f"Backend API error: {response.status_code}"}
+                            
+                    except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
+                        logger.warning(f"⚠️ Network error on attempt {attempt + 1}: {e}")
+                        if attempt < max_retries - 1:
+                            delay = base_delay * (2 ** attempt)  # Exponential backoff: 5s, 10s, 20s
+                            logger.info(f"⏳ Retrying in {delay} seconds...")
+                            await asyncio.sleep(delay)
+                            continue
+                        else:
+                            logger.error(f"❌ All {max_retries} attempts failed")
+                            return {"error": f"API call failed after {max_retries} attempts: {str(e)}"}
+                    
+                    except Exception as e:
+                        logger.error(f"❌ Unexpected error on attempt {attempt + 1}: {e}")
+                        return {"error": f"API call failed: {str(e)}"}
                     
         except Exception as e:
             logger.error(f"Error calling backend API: {e}")
