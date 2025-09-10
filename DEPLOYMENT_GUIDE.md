@@ -66,7 +66,7 @@ When creating services, you'll see these fields in the Render form:
    - **Auto-Deploy**: `On Commit` (enabled)
 6. **Environment Variables** (click "Add Environment Variable" for each):
    - `API_HOST`: `0.0.0.0`
-   - `ALLOWED_ORIGINS`: `https://your-vercel-app.vercel.app` (update with actual Vercel URL later)
+   - `ALLOWED_ORIGINS`: `https://roboadvisor-mu.vercel.app`
    - `OPENAI_API_KEY`: `your-openai-key-here`
    - `SECRET_KEY`: `your-secret-key-here` (generate a random string)
    - **Note**: `PORT` is automatically provided by Render - don't set it manually
@@ -98,7 +98,7 @@ When creating services, you'll see these fields in the Render form:
    - `LANGSMITH_PROJECT`: `robo-advisor-chatbot` (optional)
 5. Click "Deploy web service"
 6. Wait for deployment (10-15 minutes)
-7. Copy the service URL (e.g., `https://chatbot-service.onrender.com`)
+7. Copy the service URL (e.g., `https://chatbot-service-14zf.onrender.com`)
 
 ## Phase 3: Deploy Frontend to Vercel
 
@@ -116,7 +116,7 @@ When creating services, you'll see these fields in the Render form:
      - `NEXT_PUBLIC_CHATBOT_WS_URL`: `wss://chatbot-service-14zf.onrender.com`
 6. Click "Deploy"
 7. Wait for deployment (2-3 minutes)
-8. Copy your Vercel URL (e.g., `https://your-app.vercel.app`)
+8. Copy your Vercel URL (e.g., `https://roboadvisor-mu.vercel.app`)
 
 ## Phase 4: Update CORS URLs
 
@@ -126,7 +126,7 @@ Once you have your Vercel URL, update the CORS settings:
 1. **Portfolio Tools** - Update environment variable in Render dashboard:
    - Go to your `portfolio-tools` service
    - Click "Environment" tab
-   - Update `ALLOWED_ORIGINS` to: `https://your-actual-vercel-url.vercel.app`
+   - Update `ALLOWED_ORIGINS` to: `https://roboadvisor-mu.vercel.app`
    - Click "Save Changes"
 
 2. **Chatbot Service** - Update environment variable in Render dashboard:
@@ -134,7 +134,7 @@ Once you have your Vercel URL, update the CORS settings:
    - Click "Environment" tab
    - Add new environment variable:
      - **Key**: `ALLOWED_ORIGINS`
-     - **Value**: `https://your-actual-vercel-url.vercel.app`
+     - **Value**: `https://roboadvisor-mu.vercel.app`
    - Click "Save Changes"
 
 3. **Redeploy both services** - Render will automatically redeploy when you save environment changes
@@ -175,10 +175,10 @@ Once you have your Vercel URL, update the CORS settings:
 curl https://portfolio-tools.onrender.com/health
 
 # Test chatbot service  
-curl https://chatbot-service.onrender.com/health
+curl https://chatbot-service-14zf.onrender.com/health
 
 # Test WebSocket (in browser console)
-const ws = new WebSocket('wss://chatbot-service.onrender.com/ws/chat/test');
+const ws = new WebSocket('wss://chatbot-service-14zf.onrender.com/ws/chat/test');
 ```
 
 ## Cost Summary

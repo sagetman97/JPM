@@ -35,7 +35,7 @@ app = FastAPI(title="Robo-Advisor Chatbot API", version="1.0.0")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://your-vercel-app.vercel.app"],
+    allow_origins=["https://roboadvisor-mu.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
