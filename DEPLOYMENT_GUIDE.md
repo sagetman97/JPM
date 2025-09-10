@@ -20,19 +20,18 @@
 5. Wait for deployment
 6. Copy the connection URL
 
-### Update Environment Variables
-Once you have the Qdrant URL, update your `.env` file:
-```bash
-QDRANT_HOST=your-qdrant-url.railway.app
-QDRANT_PORT=6333
-```
+### Get Your Qdrant Connection Details
+Once deployed, note down:
+- **Qdrant URL**: `https://your-qdrant-url.railway.app`
+- **Port**: `6333` (default)
+- **Collection Name**: `robo_advisor_rag` (we'll create this)
 
 ## Phase 2: Deploy Backend Services to Render
 
 ### Important Notes Before Starting
 - **Docker Required**: Both services use Docker, so select "Docker" as the language
 - **Health Check**: Both services have `/health` endpoints for monitoring
-- **Environment Variables**: You'll need API keys for OpenAI, Tavily, and Qdrant
+- **Environment Variables**: You'll need API keys for OpenAI (Tavily optional)
 - **CORS**: Update `ALLOWED_ORIGINS` after getting your Vercel URL
 
 ### Render Form Field Reference
@@ -91,10 +90,12 @@ When creating services, you'll see these fields in the Render form:
    - **Auto-Deploy**: `On Commit` (enabled)
 4. **Environment Variables** (click "Add Environment Variable" for each):
    - `OPENAI_API_KEY`: `your-openai-key-here`
+   - `QDRANT_HOST`: `your-qdrant-url.railway.app` (from Phase 1)
+   - `QDRANT_PORT`: `6333`
+   - `QDRANT_COLLECTION_NAME`: `robo_advisor_rag`
    - `TAVILY_API_KEY`: `your-tavily-key-here` (optional - for external search)
    - `LANGSMITH_API_KEY`: `your-langsmith-key-here` (optional - for monitoring)
    - `LANGSMITH_PROJECT`: `robo-advisor-chatbot` (optional)
-   - **Note**: Qdrant uses in-memory storage by default - no external Qdrant needed!
 5. Click "Deploy web service"
 6. Wait for deployment (10-15 minutes)
 7. Copy the service URL (e.g., `https://chatbot-service.onrender.com`)
