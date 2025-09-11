@@ -14,6 +14,7 @@ from .universal_context_selector import UniversalContextSelector, ContextSelecti
 from .config import config
 from .context_manager import ConversationContextUpdater, ContextPollutionGuard
 from .simple_conversation_history import SimpleConversationHistory
+from .session_persistence import SessionPersistenceManager
 
 logger = logging.getLogger(__name__)
 
@@ -468,7 +469,7 @@ class ComplianceAgent:
 class ChatbotOrchestrator:
     """Orchestrates the entire chatbot pipeline"""
     
-    def __init__(self, intent_classifier, smart_router, rag_system, external_search, tool_integrator, calculator_selector, quick_calculator, file_processor):
+    def __init__(self, intent_classifier, smart_router, rag_system, external_search, tool_integrator, calculator_selector, quick_calculator, file_processor, qdrant_client=None):
         self.intent_classifier = intent_classifier
         self.smart_router = smart_router
         self.rag_system = rag_system
@@ -502,8 +503,9 @@ class ChatbotOrchestrator:
         # Remove complex query enhancer integration
         # self.query_enhancer.set_context_analyzer(self.context_analyzer)
         
-        # Session management
+        # Session management with persistence
         self.sessions: Dict[str, ChatSession] = {}
+        self.session_persistence = SessionPersistenceManager(qdrant_client)
         
         logger.info("ChatbotOrchestrator initialized successfully")
     
@@ -528,16 +530,28 @@ class ChatbotOrchestrator:
         
         try:
             # Get or create session
-            session = self._get_or_create_session(session_id)
+            session = await self._get_or_create_session(session_id)
             
             # Add message to session
             session.add_message(message)
+            
+            # Save session after adding message
+            try:
+                await self.session_persistence.save_session(session)
+            except Exception as e:
+                logger.warning(f"⚠️ Could not save session after adding message: {e}")
             
             # Process through pipeline
             response = await self._process_through_pipeline(message, session)
             
             # Add response to session
             session.add_message(response)
+            
+            # Save session after adding response
+            try:
+                await self.session_persistence.save_session(session)
+            except Exception as e:
+                logger.warning(f"⚠️ Could not save session after adding response: {e}")
             
             logger.info(f"Message processed successfully for session {session_id}")
             return response
@@ -546,44 +560,75 @@ class ChatbotOrchestrator:
             logger.error(f"Error processing message: {e}")
             return self._create_error_response(message, str(e))
     
-    def _get_or_create_session(self, session_id: str) -> ChatSession:
-        """Get existing session or create new one"""
+    async def _get_or_create_session(self, session_id: str) -> ChatSession:
+        """Get existing session or create new one with persistence"""
         
-        if session_id not in self.sessions:
-            # Create per-session conversation history
-            session_simple_history = SimpleConversationHistory(
-                max_history=8, 
-                llm_client=self.simple_history_llm_client
-            )
-            
-            # Create default context for new session
-            default_context = ConversationContext(
-                session_id=session_id,
-                knowledge_level=KnowledgeLevel.BEGINNER,
-                user_goals=[],
-                current_topic=None,
-                previous_calculations=[],
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-                # REMOVED: Complex conversation_memory that was causing issues
-                # conversation_memory=self.conversation_memory,
-                simple_history=session_simple_history  # Per-session history for conversation management
-            )
-            
-            self.sessions[session_id] = ChatSession(
-                session_id=session_id,
-                context=default_context,
-                created_at=datetime.utcnow(),
-                last_activity=datetime.utcnow()
-            )
+        # First check in-memory cache
+        if session_id in self.sessions:
+            self.sessions[session_id].last_activity = datetime.utcnow()
+            return self.sessions[session_id]
         
-        # Update last activity
-        self.sessions[session_id].last_activity = datetime.utcnow()
-        return self.sessions[session_id]
+        # Try to load from persistent storage
+        try:
+            session = await self.session_persistence.load_session(session_id)
+            if session:
+                # Load into memory cache
+                self.sessions[session_id] = session
+                session.last_activity = datetime.utcnow()
+                logger.info(f"✅ Loaded session {session_id} from persistent storage")
+                return session
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load session {session_id} from storage: {e}")
+        
+        # Create new session if not found
+        logger.info(f"🔧 Creating new session {session_id}")
+        
+        # Create per-session conversation history
+        session_simple_history = SimpleConversationHistory(
+            max_history=8, 
+            llm_client=self.simple_history_llm_client
+        )
+        
+        # Create default context for new session
+        default_context = ConversationContext(
+            session_id=session_id,
+            knowledge_level=KnowledgeLevel.BEGINNER,
+            user_goals=[],
+            current_topic=None,
+            previous_calculations=[],
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            # REMOVED: Complex conversation_memory that was causing issues
+            # conversation_memory=self.conversation_memory,
+            simple_history=session_simple_history  # Per-session history for conversation management
+        )
+        
+        new_session = ChatSession(
+            session_id=session_id,
+            context=default_context,
+            created_at=datetime.utcnow(),
+            last_activity=datetime.utcnow()
+        )
+        
+        # Store in memory cache
+        self.sessions[session_id] = new_session
+        
+        # Save to persistent storage
+        try:
+            await self.session_persistence.save_session(new_session)
+            logger.info(f"✅ Saved new session {session_id} to persistent storage")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not save new session {session_id} to storage: {e}")
+        
+        return new_session
     
     async def cleanup_old_sessions(self, max_age_hours: int = 24) -> int:
         """Clean up old sessions that haven't been active for the specified time"""
         try:
+            # Use persistence manager for cleanup
+            cleaned_count = await self.session_persistence.cleanup_old_sessions(max_age_hours)
+            
+            # Also clean up in-memory cache
             current_time = datetime.utcnow()
             cutoff_time = current_time - timedelta(hours=max_age_hours)
             
@@ -592,15 +637,15 @@ class ChatbotOrchestrator:
                 if session.last_activity < cutoff_time:
                     sessions_to_remove.append(session_id)
             
-            # Remove old sessions
+            # Remove old sessions from memory
             for session_id in sessions_to_remove:
                 del self.sessions[session_id]
-                logger.info(f"🧹 SESSION CLEANUP: Removed old session {session_id}")
+                logger.info(f"🧹 SESSION CLEANUP: Removed old session {session_id} from memory")
             
-            if sessions_to_remove:
-                logger.info(f"🧹 SESSION CLEANUP: Cleaned up {len(sessions_to_remove)} old sessions")
+            if sessions_to_remove or cleaned_count > 0:
+                logger.info(f"🧹 SESSION CLEANUP: Cleaned up {cleaned_count} sessions from storage and {len(sessions_to_remove)} from memory")
             
-            return len(sessions_to_remove)
+            return cleaned_count
             
         except Exception as e:
             logger.error(f"Error during session cleanup: {e}")
@@ -1058,7 +1103,7 @@ class ChatbotOrchestrator:
         """Process file upload for analysis"""
         
         try:
-            session = self._get_or_create_session(session_id)
+            session = await self._get_or_create_session(session_id)
             context = session.get_context()
             
             # Process file upload
@@ -1093,7 +1138,7 @@ class ChatbotOrchestrator:
         """Analyze uploaded file in context of conversation"""
         
         try:
-            session = self._get_or_create_session(session_id)
+            session = await self._get_or_create_session(session_id)
             context = session.get_context()
             
             # Analyze file
@@ -1824,7 +1869,7 @@ class ChatbotOrchestrator:
             logger.info(f"🎼 ORCHESTRATOR: Handling file analysis for query: '{query[:50]}...'")
             
             # Get the most recent file upload for this session
-            session = self._get_or_create_session(context.session_id)
+            session = await self._get_or_create_session(context.session_id)
             uploaded_files = session.get_uploaded_files()
             
             if not uploaded_files:

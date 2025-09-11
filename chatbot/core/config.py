@@ -20,10 +20,12 @@ class ChatbotConfig(BaseSettings):
     openai_model: str = "gpt-4o-mini"  # Use more cost-effective model
     openai_temperature: float = 0.1
     
-    # Qdrant Configuration - Use in-memory by default
-    qdrant_host: str = os.getenv("QDRANT_HOST", ":memory:")  # In-memory by default
-    qdrant_port: int = int(os.getenv("QDRANT_PORT", "0"))  # Port 0 for in-memory
+    # Qdrant Configuration - Environment-aware
+    qdrant_host: str = os.getenv("QDRANT_HOST", "localhost")
+    qdrant_port: int = int(os.getenv("QDRANT_PORT", "6333"))
+    qdrant_url: str = os.getenv("QDRANT_URL", "")  # Railway provides full URL
     qdrant_collection_name: str = "robo_advisor_rag"
+    qdrant_sessions_collection: str = "robo_advisor_sessions"
     
     # LangSmith Configuration
     langsmith_api_key: str = os.getenv("LANGSMITH_API_KEY", "")
@@ -43,9 +45,39 @@ class ChatbotConfig(BaseSettings):
         print(f"🔧 BACKEND_API_URL env var: {os.getenv('BACKEND_API_URL', 'NOT_SET')}")
         print(f"🔧 Environment: {'Render' if os.getenv('RENDER') else 'Localhost'}")
         print(f"🔧 All env vars starting with BACKEND: {[k for k in os.environ.keys() if k.startswith('BACKEND')]}")
+        
+        # Environment detection and Qdrant configuration
+        self.is_production = os.getenv('RENDER') is not None
+        self._configure_qdrant_for_environment()
     
-    # RAG Configuration
-    rag_documents_path: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "RAG Documents")
+    def _configure_qdrant_for_environment(self):
+        """Configure Qdrant settings based on environment"""
+        if self.is_production:
+            # Production: Use Railway Qdrant URL if provided, otherwise use host/port
+            if self.qdrant_url:
+                print(f"🔧 Production Qdrant URL: {self.qdrant_url}")
+            else:
+                if not self.qdrant_host or self.qdrant_host == "localhost":
+                    self.qdrant_host = "qdrant-production-cf1d.up.railway.app"
+                print(f"🔧 Production Qdrant: {self.qdrant_host}:{self.qdrant_port}")
+        else:
+            # Localhost: Use local Qdrant
+            if self.qdrant_host == ":memory:":
+                self.qdrant_host = "localhost"
+            if self.qdrant_port == 0:
+                self.qdrant_port = 6333
+            print(f"🔧 Localhost Qdrant: {self.qdrant_host}:{self.qdrant_port}")
+        
+        # Log final configuration
+        if self.qdrant_url:
+            print(f"🔧 Final Qdrant config: URL={self.qdrant_url}")
+        else:
+            print(f"🔧 Final Qdrant config: {self.qdrant_host}:{self.qdrant_port}")
+        print(f"🔧 RAG Documents path: {self.rag_documents_path}")
+        print(f"🔧 RAG Documents exists: {os.path.exists(self.rag_documents_path)}")
+    
+    # RAG Configuration - Updated for chatbot folder structure
+    rag_documents_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "RAG Documents")
     chunk_size: int = 1000
     chunk_overlap: int = 200
     embedding_model: str = "text-embedding-3-small"  # Use smaller, cheaper model

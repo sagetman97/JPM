@@ -19,12 +19,10 @@ services:
           key: LANGSMITH_API_KEY
       - key: LANGSMITH_PROJECT
         value: financial-advisor-assistant
-      - key: QDRANT_HOST
+      - key: QDRANT_URL
         fromDatabase:
           name: chatbot-db
-          key: QDRANT_HOST
-      - key: QDRANT_PORT
-        value: 6333
+          key: QDRANT_URL
       - key: BACKEND_API_URL
         value: https://portfolio-tools.onrender.com
       - key: FRONTEND_URL

@@ -392,30 +392,52 @@ class EnhancedRAGSystem:
         # Store external search system for supplementation
         self.external_search_system = external_search_system
         
-        # Use in-memory Qdrant by default (no external service needed!)
+        # Environment-aware Qdrant connection
         if qdrant_client:
             self.qdrant_client = qdrant_client
             self.qdrant_available = True
         else:
             try:
-                # Try to connect to external Qdrant first
-                self.qdrant_client = QdrantClient(
-                    host=config.qdrant_host,
-                    port=config.qdrant_port
-                )
+                # Connect to Qdrant based on environment configuration
+                if config.is_production:
+                    # Production: Use Railway Qdrant URL or host/port
+                    if config.qdrant_url:
+                        logger.info(f"🔧 Connecting to production Qdrant URL: {config.qdrant_url}")
+                        self.qdrant_client = QdrantClient(url=config.qdrant_url)
+                    else:
+                        logger.info(f"🔧 Connecting to production Qdrant: {config.qdrant_host}:{config.qdrant_port}")
+                        self.qdrant_client = QdrantClient(
+                            host=config.qdrant_host,
+                            port=config.qdrant_port
+                        )
+                else:
+                    # Localhost: Use local Qdrant
+                    logger.info(f"🔧 Connecting to localhost Qdrant: {config.qdrant_host}:{config.qdrant_port}")
+                    self.qdrant_client = QdrantClient(
+                        host=config.qdrant_host,
+                        port=config.qdrant_port
+                    )
+                
                 # Test connection
                 self.qdrant_client.get_collections()
                 self.qdrant_available = True
-                logger.info("✅ Connected to external Qdrant instance")
-                # Initialize Qdrant collection if needed
+                logger.info("✅ Connected to Qdrant instance")
+                # Initialize Qdrant collections if needed
                 self._ensure_collection_exists()
+                
             except Exception as e:
-                logger.info(f"External Qdrant not available: {e}. Using in-memory Qdrant instead.")
-                # Fallback to in-memory Qdrant (no external service needed!)
-                self.qdrant_client = QdrantClient(":memory:")
-                self.qdrant_available = True
-                logger.info("✅ Created in-memory Qdrant instance")
-                self._ensure_collection_exists()
+                logger.error(f"❌ Qdrant connection failed: {e}")
+                if config.is_production:
+                    # In production, we need Qdrant to work
+                    logger.error("❌ Production requires Qdrant connection - failing startup")
+                    raise
+                else:
+                    # Localhost fallback to in-memory
+                    logger.info("🔧 Using in-memory Qdrant fallback for localhost")
+                    self.qdrant_client = QdrantClient(":memory:")
+                    self.qdrant_available = True
+                    logger.info("✅ Created in-memory Qdrant instance")
+                    self._ensure_collection_exists()
         
         self.query_expander = SemanticQueryExpander()
         self.multi_query_retriever = MultiQueryRetriever(self.qdrant_client)

@@ -110,6 +110,18 @@ async def startup_event():
     try:
         logger.info("🚀 Initializing Robo-Advisor Chatbot...")
         
+        # Run startup checks first
+        logger.info("🔍 Running startup checks...")
+        try:
+            from startup_check import StartupChecker
+            checker = StartupChecker()
+            startup_success = await checker.run_all_checks()
+            if not startup_success:
+                logger.error("❌ Startup checks failed - service may not work correctly")
+                # Don't fail completely, but log the issues
+        except Exception as e:
+            logger.warning(f"⚠️ Startup checks failed: {e} - continuing with initialization")
+        
         # Initialize core components
         logger.info("🔍 Initializing external search...")
         external_search = ExternalSearchSystem()
@@ -158,7 +170,8 @@ async def startup_event():
             tool_integrator=tool_integrator,
             calculator_selector=calculator_selector,
             quick_calculator=quick_calculator,
-            file_processor=file_processor
+            file_processor=file_processor,
+            qdrant_client=rag_system.qdrant_client  # Pass Qdrant client for session persistence
         )
         
         logger.info("✅ Robo-Advisor Chatbot initialized successfully!")
