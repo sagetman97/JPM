@@ -400,12 +400,19 @@ class EnhancedRAGSystem:
             try:
                 # Connect to Qdrant based on environment configuration
                 if config.is_production:
-                    # Production: Use Railway Qdrant URL (required for Railway)
+                    # Production: Check if we're in Docker Compose (EC2) or Railway
                     if config.qdrant_url:
                         logger.info(f"🔧 Connecting to production Qdrant URL: {config.qdrant_url}")
                         self.qdrant_client = QdrantClient(url=config.qdrant_url)
+                    elif os.path.exists('/.dockerenv'):
+                        # Docker Compose environment (EC2) - use Docker service name
+                        logger.info(f"🔧 Connecting to Docker Compose Qdrant: {config.qdrant_host}:{config.qdrant_port}")
+                        self.qdrant_client = QdrantClient(
+                            host=config.qdrant_host,
+                            port=config.qdrant_port
+                        )
                     else:
-                        # Fallback: Try to construct Railway URL from host
+                        # Railway or other cloud deployment
                         if "railway.app" in config.qdrant_host:
                             railway_url = f"https://{config.qdrant_host}"
                             logger.info(f"🔧 Constructed Railway URL: {railway_url}")

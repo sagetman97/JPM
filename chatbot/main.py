@@ -1,6 +1,7 @@
 import logging
 import json
 import uuid
+import os
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,10 +33,15 @@ logger = logging.getLogger(__name__)
 # FastAPI app
 app = FastAPI(title="Robo-Advisor Chatbot API", version="1.0.0")
 
-# CORS middleware
+# CORS middleware - configurable for different environments
+frontend_url = os.getenv("FRONTEND_URL", "https://roboadvisor-mu.vercel.app")
+allowed_origins = [frontend_url]
+if os.getenv("ALLOWED_ORIGINS"):
+    allowed_origins.extend(os.getenv("ALLOWED_ORIGINS").split(","))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://roboadvisor-mu.vercel.app"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

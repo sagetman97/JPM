@@ -27,7 +27,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - API_HOST=0.0.0.0
       - API_PORT=8000
-      - ALLOWED_ORIGINS=${FRONTEND_URL},http://localhost:3000
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       qdrant:
         condition: service_healthy
@@ -51,6 +51,7 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - BACKEND_API_URL=http://backend:8000
       - FRONTEND_URL=${FRONTEND_URL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       qdrant:
         condition: service_healthy

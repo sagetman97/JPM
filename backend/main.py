@@ -10,7 +10,9 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 API_HOST = os.getenv('API_HOST', '0.0.0.0')
 API_PORT = int(os.getenv('PORT', os.getenv('API_PORT', 8000)))
-ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'https://roboadvisor-mu.vercel.app,http://localhost:3000').split(',')
+# CORS configuration - support multiple environments
+default_origins = 'https://roboadvisor-mu.vercel.app,http://localhost:3000'
+ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', default_origins).split(',')
 
 app = FastAPI(title="Everly x JPMorgan RoboAdvisor API")
 

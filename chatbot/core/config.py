@@ -50,7 +50,13 @@ class ChatbotConfig(BaseSettings):
         print(f"🔧 All env vars starting with BACKEND: {[k for k in os.environ.keys() if k.startswith('BACKEND')]}")
         
         # Environment detection and Qdrant configuration
-        self.is_production = os.getenv('RENDER') is not None
+        # Detect production environment (Render, EC2, or other cloud)
+        self.is_production = (
+            os.getenv('RENDER') is not None or  # Render deployment
+            os.getenv('AWS_EXECUTION_ENV') is not None or  # AWS Lambda/ECS
+            os.getenv('EC2_INSTANCE_ID') is not None or  # EC2 instance
+            os.path.exists('/.dockerenv')  # Docker container
+        )
         
         # Fix RAG documents path for production vs localhost
         if self.is_production:
@@ -65,13 +71,19 @@ class ChatbotConfig(BaseSettings):
     def _configure_qdrant_for_environment(self):
         """Configure Qdrant settings based on environment"""
         if self.is_production:
-            # Production: Use Railway Qdrant URL if provided, otherwise use host/port
+            # Production: Check if we're in Docker Compose (EC2) or Railway
             if self.qdrant_url:
                 print(f"🔧 Production Qdrant URL: {self.qdrant_url}")
+            elif os.path.exists('/.dockerenv'):
+                # Docker Compose environment (EC2) - use Docker service name
+                self.qdrant_host = "qdrant"
+                self.qdrant_port = 6333
+                print(f"🔧 Docker Compose Qdrant: {self.qdrant_host}:{self.qdrant_port}")
             else:
+                # Railway or other cloud deployment
                 if not self.qdrant_host or self.qdrant_host == "localhost":
                     self.qdrant_host = "qdrant-production-cf1d.up.railway.app"
-                print(f"🔧 Production Qdrant: {self.qdrant_host}:{self.qdrant_port}")
+                print(f"🔧 Cloud Qdrant: {self.qdrant_host}:{self.qdrant_port}")
         else:
             # Localhost: Use local Qdrant
             if self.qdrant_host == ":memory:":
