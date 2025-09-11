@@ -69,17 +69,21 @@ This document outlines the comprehensive fixes implemented to resolve the produc
 ### Required for Production
 ```bash
 OPENAI_API_KEY=your_openai_api_key
-QDRANT_URL=your_railway_qdrant_connection_url
+QDRANT_URL=https://your-qdrant-url.railway.app
 ```
 
-### Optional (Fallback if QDRANT_URL not provided)
+### Optional
 ```bash
-QDRANT_HOST=qdrant-production-cf1d.up.railway.app
-QDRANT_PORT=6333
 TAVILY_API_KEY=your_tavily_api_key
 LANGSMITH_API_KEY=your_langsmith_api_key
 BACKEND_API_URL=https://portfolio-tools.onrender.com
+FRONTEND_URL=https://roboadvisor-mu.vercel.app
 ```
+
+### Important Notes
+- **QDRANT_URL is REQUIRED** for production - Railway provides this as a full HTTPS URL
+- **QDRANT_HOST and QDRANT_PORT are NOT used** in production - only QDRANT_URL
+- The service will fall back to in-memory Qdrant if connection fails, but RAG won't work
 
 ## Testing
 

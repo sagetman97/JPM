@@ -57,7 +57,10 @@ class StartupChecker:
         # Check Qdrant configuration
         logger.info(f"Qdrant Host: {config.qdrant_host}")
         logger.info(f"Qdrant Port: {config.qdrant_port}")
-        logger.info(f"Qdrant HTTPS: {config.qdrant_https}")
+        if config.qdrant_url:
+            logger.info(f"Qdrant URL: {config.qdrant_url}")
+        else:
+            logger.info("Qdrant URL: Not set (using host/port)")
         
         # Check RAG documents path
         if os.path.exists(config.rag_documents_path):

@@ -26,7 +26,10 @@ async def test_configuration():
     print(f"   Environment: {'Production' if config.is_production else 'Localhost'}")
     print(f"   Qdrant Host: {config.qdrant_host}")
     print(f"   Qdrant Port: {config.qdrant_port}")
-    print(f"   Qdrant HTTPS: {config.qdrant_https}")
+    if config.qdrant_url:
+        print(f"   Qdrant URL: {config.qdrant_url}")
+    else:
+        print("   Qdrant URL: Not set (using host/port)")
     print(f"   RAG Documents Path: {config.rag_documents_path}")
     print(f"   RAG Documents Exists: {os.path.exists(config.rag_documents_path)}")
     

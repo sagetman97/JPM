@@ -1,0 +1,3 @@
+[33m553f206[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m 🚀 Fix production issues: RAG system, session persistence, and Qdrant connection
+[33md680b9a[m Fix environment variable loading for both localhost and Render - add fallback strategies
+[33m71bdd01[m Fix ALL timeout issues: main.py 300s, orchestrator httpx 90s, backend integration retry logic

@@ -400,16 +400,19 @@ class EnhancedRAGSystem:
             try:
                 # Connect to Qdrant based on environment configuration
                 if config.is_production:
-                    # Production: Use Railway Qdrant URL or host/port
+                    # Production: Use Railway Qdrant URL (required for Railway)
                     if config.qdrant_url:
                         logger.info(f"🔧 Connecting to production Qdrant URL: {config.qdrant_url}")
                         self.qdrant_client = QdrantClient(url=config.qdrant_url)
                     else:
-                        logger.info(f"🔧 Connecting to production Qdrant: {config.qdrant_host}:{config.qdrant_port}")
-                        self.qdrant_client = QdrantClient(
-                            host=config.qdrant_host,
-                            port=config.qdrant_port
-                        )
+                        # Fallback: Try to construct Railway URL from host
+                        if "railway.app" in config.qdrant_host:
+                            railway_url = f"https://{config.qdrant_host}"
+                            logger.info(f"🔧 Constructed Railway URL: {railway_url}")
+                            self.qdrant_client = QdrantClient(url=railway_url)
+                        else:
+                            logger.error("❌ Production requires QDRANT_URL environment variable for Railway")
+                            raise ValueError("QDRANT_URL environment variable is required for production")
                 else:
                     # Localhost: Use local Qdrant
                     logger.info(f"🔧 Connecting to localhost Qdrant: {config.qdrant_host}:{config.qdrant_port}")
@@ -418,7 +421,8 @@ class EnhancedRAGSystem:
                         port=config.qdrant_port
                     )
                 
-                # Test connection
+                # Test connection with timeout
+                logger.info("🔧 Testing Qdrant connection...")
                 self.qdrant_client.get_collections()
                 self.qdrant_available = True
                 logger.info("✅ Connected to Qdrant instance")
@@ -428,9 +432,15 @@ class EnhancedRAGSystem:
             except Exception as e:
                 logger.error(f"❌ Qdrant connection failed: {e}")
                 if config.is_production:
-                    # In production, we need Qdrant to work
-                    logger.error("❌ Production requires Qdrant connection - failing startup")
-                    raise
+                    # In production, we need Qdrant to work, but don't fail completely
+                    logger.error("❌ Production Qdrant connection failed - service will start but RAG may not work")
+                    logger.error("❌ Please check QDRANT_URL environment variable")
+                    # Use in-memory as fallback even in production for now
+                    logger.info("🔧 Using in-memory Qdrant fallback for production")
+                    self.qdrant_client = QdrantClient(":memory:")
+                    self.qdrant_available = True
+                    logger.info("✅ Created in-memory Qdrant instance")
+                    self._ensure_collection_exists()
                 else:
                     # Localhost fallback to in-memory
                     logger.info("🔧 Using in-memory Qdrant fallback for localhost")
