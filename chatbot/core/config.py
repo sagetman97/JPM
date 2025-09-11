@@ -3,8 +3,14 @@ import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# Load environment variables from root directory .env file
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env'))
+# Load environment variables from root directory .env file (if it exists)
+# This works for localhost development, but Render uses environment variables directly
+env_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+if os.path.exists(env_file_path):
+    load_dotenv(dotenv_path=env_file_path)
+    print(f"🔧 Loaded .env file from: {env_file_path}")
+else:
+    print(f"🔧 No .env file found at: {env_file_path} - using environment variables directly")
 
 class ChatbotConfig(BaseSettings):
     """Configuration for the Robo-Advisor Chatbot"""
@@ -35,6 +41,8 @@ class ChatbotConfig(BaseSettings):
         # Debug: Log the actual backend URL being used
         print(f"🔧 Backend API URL configured as: {self.backend_api_url}")
         print(f"🔧 BACKEND_API_URL env var: {os.getenv('BACKEND_API_URL', 'NOT_SET')}")
+        print(f"🔧 Environment: {'Render' if os.getenv('RENDER') else 'Localhost'}")
+        print(f"🔧 All env vars starting with BACKEND: {[k for k in os.environ.keys() if k.startswith('BACKEND')]}")
     
     # RAG Configuration
     rag_documents_path: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "RAG Documents")

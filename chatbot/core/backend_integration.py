@@ -17,16 +17,29 @@ class BackendAPIIntegrator:
     """Integrates with existing backend APIs for calculations and analysis"""
     
     def __init__(self):
-        # Get backend URL with fallback logic
+        # Get backend URL with multiple fallback strategies
         self.base_url = config.backend_api_url
         print(f"🔧 BackendAPIIntegrator initialized with URL: {self.base_url}")
         
-        # Double-check environment variable
+        # Strategy 1: Check environment variable directly
         env_backend_url = os.getenv("BACKEND_API_URL")
         if env_backend_url and env_backend_url != self.base_url:
             print(f"⚠️ Environment variable mismatch! Config: {self.base_url}, Env: {env_backend_url}")
             self.base_url = env_backend_url
             print(f"🔧 Using environment variable URL: {self.base_url}")
+        
+        # Strategy 2: Check if we're in Render and force the correct URL
+        if os.getenv('RENDER') and 'localhost' in self.base_url:
+            print(f"⚠️ Detected Render environment but using localhost URL: {self.base_url}")
+            self.base_url = "https://portfolio-tools.onrender.com"
+            print(f"🔧 Forced Render URL: {self.base_url}")
+        
+        # Strategy 3: Final validation
+        if 'localhost' in self.base_url and os.getenv('RENDER'):
+            print(f"❌ CRITICAL: Still using localhost in Render environment!")
+            print(f"❌ Config backend_api_url: {config.backend_api_url}")
+            print(f"❌ Environment BACKEND_API_URL: {os.getenv('BACKEND_API_URL')}")
+            print(f"❌ All environment variables: {dict(os.environ)}")
         
         self.client = httpx.AsyncClient()  # No default timeout - will use per-request timeout
     
