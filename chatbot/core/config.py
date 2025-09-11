@@ -38,6 +38,9 @@ class ChatbotConfig(BaseSettings):
     # Backend API Configuration
     backend_api_url: str = os.getenv("BACKEND_API_URL", "http://localhost:8000")
     
+    # Environment Configuration
+    is_production: bool = False  # Will be set in __init__
+    
     def __init__(self):
         super().__init__()
         # Debug: Log the actual backend URL being used
@@ -73,8 +76,11 @@ class ChatbotConfig(BaseSettings):
             print(f"🔧 Final Qdrant config: URL={self.qdrant_url}")
         else:
             print(f"🔧 Final Qdrant config: {self.qdrant_host}:{self.qdrant_port}")
-        print(f"🔧 RAG Documents path: {self.rag_documents_path}")
-        print(f"🔧 RAG Documents exists: {os.path.exists(self.rag_documents_path)}")
+        
+        # Calculate RAG documents path for logging
+        rag_docs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "RAG Documents")
+        print(f"🔧 RAG Documents path: {rag_docs_path}")
+        print(f"🔧 RAG Documents exists: {os.path.exists(rag_docs_path)}")
     
     # RAG Configuration - Updated for chatbot folder structure
     rag_documents_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "RAG Documents")
