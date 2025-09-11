@@ -1,0 +1,3 @@
+[33m22ccac2[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mec2-deployment[m[33m, [m[1;31morigin/ec2-deployment[m[33m)[m 📝 Complete env.example with all required variables
+[33m15d0529[m 🔧 CRITICAL FIXES: Complete EC2 deployment compatibility
+[33m2b16f11[m 🚀 Add EC2 deployment support with Docker Compose
