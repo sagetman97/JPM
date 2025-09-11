@@ -298,7 +298,7 @@ export default function PortfolioAssessmentPage() {
             // Check if we have analysis data stored in backend for this session
             if (sessionId) {
               try {
-                const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+                const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://backend:8000';
                 const response = await fetch(`${apiBaseUrl}/api/pdf/portfolio-data/${sessionId}`);
                 if (response.ok) {
                   const storedData = await response.json();
@@ -427,7 +427,7 @@ export default function PortfolioAssessmentPage() {
 
   // Enhanced file processing with comprehensive error handling
   const processFilesEfficiently = async (files: File[]): Promise<any> => {
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://backend:8000';
     
     let combinedData: any = {
       household_profile: {
@@ -1215,7 +1215,7 @@ export default function PortfolioAssessmentPage() {
       }
       
       // Get API base URL once for all backend calls
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://backend:8000';
       
       // Store analysis data in backend for state persistence
       const storeResponse = await fetch(`${apiBaseUrl}/api/pdf/portfolio-data`, {
