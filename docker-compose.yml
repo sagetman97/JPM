@@ -11,11 +11,6 @@ services:
     environment:
       - QDRANT__SERVICE__HTTP_PORT=6333
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   backend:
     build: ./backend
@@ -29,14 +24,8 @@ services:
       - API_PORT=8000
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
-      qdrant:
-        condition: service_healthy
+      - qdrant
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   chatbot:
     build: ./chatbot
@@ -53,16 +42,23 @@ services:
       - FRONTEND_URL=${FRONTEND_URL}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
-      qdrant:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
+      - qdrant
+      - backend
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+
+  frontend:
+    build: ./frontend
+    container_name: roboadvisor-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+      - NEXT_PUBLIC_CHATBOT_URL=${NEXT_PUBLIC_CHATBOT_URL}
+      - NEXT_PUBLIC_CHATBOT_WS_URL=${NEXT_PUBLIC_CHATBOT_WS_URL}
+    depends_on:
+      - backend
+      - chatbot
+    restart: unless-stopped
 
 volumes:
   qdrant_data:

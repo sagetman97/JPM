@@ -427,6 +427,8 @@ export default function PortfolioAssessmentPage() {
 
   // Enhanced file processing with comprehensive error handling
   const processFilesEfficiently = async (files: File[]): Promise<any> => {
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    
     let combinedData: any = {
       household_profile: {
         client_age: 0,
@@ -523,7 +525,7 @@ export default function PortfolioAssessmentPage() {
         const base64Content = await fileToBase64(file);
         
         // Call new comprehensive backend endpoint
-        const response = await fetch('/api/analyze-portfolio-file', {
+        const response = await fetch(`${apiBaseUrl}/api/analyze-portfolio-file`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

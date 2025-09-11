@@ -71,21 +71,21 @@ sleep 30
 print_status "Checking service health..."
 
 # Check Qdrant
-if curl -f http://localhost:6333/health > /dev/null 2>&1; then
+if curl -f http://localhost:6333/collections > /dev/null 2>&1; then
     print_status "Qdrant is healthy"
 else
     print_error "Qdrant is not responding"
 fi
 
 # Check Backend
-if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+if curl -f http://localhost:8000/docs > /dev/null 2>&1; then
     print_status "Backend is healthy"
 else
     print_error "Backend is not responding"
 fi
 
 # Check Chatbot
-if curl -f http://localhost:8001/health > /dev/null 2>&1; then
+if curl -f http://localhost:8001/docs > /dev/null 2>&1; then
     print_status "Chatbot is healthy"
 else
     print_error "Chatbot is not responding"
