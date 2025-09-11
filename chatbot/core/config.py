@@ -51,6 +51,15 @@ class ChatbotConfig(BaseSettings):
         
         # Environment detection and Qdrant configuration
         self.is_production = os.getenv('RENDER') is not None
+        
+        # Fix RAG documents path for production vs localhost
+        if self.is_production:
+            # Production: chatbot directory is root, so RAG Documents is at ./RAG Documents
+            self.rag_documents_path = os.path.join(os.getcwd(), "RAG Documents")
+        else:
+            # Localhost: RAG Documents is one level up from core directory
+            self.rag_documents_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "RAG Documents")
+        
         self._configure_qdrant_for_environment()
     
     def _configure_qdrant_for_environment(self):
@@ -83,6 +92,8 @@ class ChatbotConfig(BaseSettings):
         print(f"🔧 RAG Documents exists: {os.path.exists(rag_docs_path)}")
     
     # RAG Configuration - Updated for chatbot folder structure
+    # In production (Render), the chatbot directory is the root, so RAG Documents is at ./RAG Documents
+    # In localhost, it's at ../RAG Documents from the core directory
     rag_documents_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "RAG Documents")
     chunk_size: int = 1000
     chunk_overlap: int = 200
