@@ -1263,8 +1263,7 @@ export default function PortfolioAssessmentPage() {
       });
       
       // Notify the chatbot that PDF generation is ready
-      const chatbotUrl = process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001';
-      const notifyResponse = await fetch(`${chatbotUrl}/api/chat/tool-completion`, {
+      const notifyResponse = await fetch('/chatbot-api/chat/tool-completion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
