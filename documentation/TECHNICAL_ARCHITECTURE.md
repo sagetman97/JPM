@@ -1003,7 +1003,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_CHATBOT_URL=http://your-ec2-public-ip:8001
+      - NEXT_PUBLIC_CHATBOT_URL=http://chatbot:8001
       - NEXT_PUBLIC_TOOLS_URL=http://localhost:8000
   
   qdrant:
