@@ -50,6 +50,16 @@ RUN apt-get update && apt-get install -y \
     libharfbuzz-dev \
     libfribidi-dev \
     libxcb1-dev \
+    # Scientific computing dependencies for matplotlib, numpy, scipy, pandas
+    libblas-dev \
+    liblapack-dev \
+    libatlas-base-dev \
+    gfortran \
+    libgfortran5 \
+    libopenblas-dev \
+    libhdf5-dev \
+    libnetcdf-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --upgrade pip setuptools wheel
 

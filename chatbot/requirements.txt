@@ -36,6 +36,9 @@ playwright==1.40.0
 # External search
 tavily-python==0.3.1
 
+# LangSmith integration
+langsmith==0.1.0
+
 # Utilities
 python-multipart==0.0.6
 python-dotenv==1.0.0
