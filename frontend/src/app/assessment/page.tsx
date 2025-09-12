@@ -589,7 +589,7 @@ export default function AssessmentPage() {
       });
       
       // Notify the chatbot that PDF generation is ready with comprehensive data
-      const notifyResponse = await fetch('/chatbot-api/chat/tool-completion', {
+      const notifyResponse = await fetch('/chatbot-api/api/chat/tool-completion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
