@@ -47,7 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     libatspi2.0-0 \
     libgtk-3-0 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-xlib-2.0-0 \
     libx11-6 \
     libxext6 \
     libxfixes3 \
