@@ -53,7 +53,6 @@ RUN apt-get update && apt-get install -y \
     # Scientific computing dependencies for matplotlib, numpy, scipy, pandas
     libblas-dev \
     liblapack-dev \
-    libatlas-base-dev \
     gfortran \
     libgfortran5 \
     libopenblas-dev \

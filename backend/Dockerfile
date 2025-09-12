@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y \
     # Scientific computing dependencies for numpy, pandas, scipy, scikit-learn
     libblas-dev \
     liblapack-dev \
-    libatlas-base-dev \
     gfortran \
     libgfortran5 \
     libopenblas-dev \
