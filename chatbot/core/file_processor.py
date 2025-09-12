@@ -659,7 +659,7 @@ class FileProcessor:
         """Format tool result data as readable text for context"""
         
         try:
-            if tool_type == "assessment":
+            if tool_type in ["assessment", "detailed_assessment", "client_assessment"]:
                 return self._format_assessment_result(result_data)
             elif tool_type == "portfolio":
                 return self._format_portfolio_result(result_data)

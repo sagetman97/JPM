@@ -634,7 +634,8 @@ async def handle_tool_completion(request: ToolCompletionRequest):
             raise HTTPException(status_code=404, detail=f"Session not found: {request.external_session_id}")
         
         # Generate PDF
-        if request.tool_type == "assessment":
+        if request.tool_type in ["assessment", "detailed_assessment", "client_assessment"]:
+            logger.info(f"Generating assessment PDF for tool type: {request.tool_type}")
             pdf_id = await pdf_generator.generate_assessment_pdf(
                 request.result_data, 
                 request.external_session_id,
@@ -648,7 +649,7 @@ async def handle_tool_completion(request: ToolCompletionRequest):
                 request.external_session_id
             )
         else:
-            raise HTTPException(status_code=400, detail="Invalid tool type")
+            raise HTTPException(status_code=400, detail=f"Invalid tool type: {request.tool_type}")
         
         # Update session with PDF ID
         tool_session = await session_linker.get_tool_session(request.external_session_id)
@@ -757,7 +758,7 @@ async def get_pending_tools(session_id: str):
 
 def _generate_result_summary(tool_type: str, result_data: Dict[str, Any]) -> str:
     """Generate a summary of the tool result"""
-    if tool_type == "assessment":
+    if tool_type in ["assessment", "detailed_assessment", "client_assessment"]:
         # Extract from nested structure: { "formData": {...}, "result": {...} }
         result = result_data.get('result', {})
         recommended_coverage = result.get('recommended_coverage', 0)
@@ -791,7 +792,7 @@ def _generate_result_summary(tool_type: str, result_data: Dict[str, Any]) -> str
 
 def _generate_detailed_report_message(tool_type: str, result_data: Dict[str, Any]) -> str:
     """Generate a detailed report message for conversation history"""
-    if tool_type == "assessment":
+    if tool_type in ["assessment", "detailed_assessment", "client_assessment"]:
         # Extract assessment data
         result = result_data.get('result', {})
         form_data = result_data.get('formData', {})

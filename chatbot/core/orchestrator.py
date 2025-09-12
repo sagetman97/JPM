@@ -1855,7 +1855,7 @@ class ChatbotOrchestrator:
             
         except Exception as e:
             logger.error(f"Error processing tool completion: {e}")
-            if tool_type == "assessment":
+            if tool_type in ["assessment", "detailed_assessment", "client_assessment"]:
                 return "Your assessment has been completed successfully. The results show your insurance needs analysis and recommendations."
             elif tool_type == "portfolio":
                 return "Your portfolio analysis has been completed successfully. The results include risk assessment and recommendations for your financial planning."
