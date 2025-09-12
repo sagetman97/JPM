@@ -266,7 +266,7 @@ class SemanticSmartRouter:
         """Route to external detailed client assessment tool"""
         
         try:
-            tool_response = await self.tool_integrator.route_to_external_tool("detailed_assessment", context)
+            tool_response = await self.route_to_external_tool("detailed_assessment", context)
             
             return RoutingDecision(
                 route_type=RouteType.EXTERNAL_TOOL,
@@ -289,7 +289,7 @@ class SemanticSmartRouter:
         """Route to external portfolio analysis tool"""
         
         try:
-            tool_response = await self.tool_integrator.route_to_external_tool("portfolio_analysis", context)
+            tool_response = await self.route_to_external_tool("portfolio_analysis", context)
             
             return RoutingDecision(
                 route_type=RouteType.EXTERNAL_TOOL,
