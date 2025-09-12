@@ -71,8 +71,7 @@ export default function RoboAdvisorPage() {
 
   const connectWebSocket = () => {
     try {
-      const chatbotUrl = process.env.NEXT_PUBLIC_CHATBOT_WS_URL || 'ws://localhost:8001';
-      const wsUrl = `${chatbotUrl}/ws/chat/${sessionId}`;
+      const wsUrl = `${process.env.NEXT_PUBLIC_CHATBOT_WS_URL || 'ws://localhost:8001'}/ws/chat/${sessionId}`;
       console.log('Attempting to connect to WebSocket:', wsUrl);
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
