@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install essential build tools and dependencies for PDF/DOCX processing
+# Install essential build tools, PDF/DOCX processing, and Playwright dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
@@ -33,6 +33,45 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopenblas-dev \
     libhdf5-dev \
     libnetcdf-dev \
+    # Playwright browser dependencies (Debian Trixie compatible)
+    libnss3 \
+    libnspr4 \
+    libdbus-1-3 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxss1 \
+    libasound2 \
+    libatspi2.0-0 \
+    libgtk-3-0 \
+    libgdk-pixbuf2.0-0 \
+    libx11-6 \
+    libxext6 \
+    libxfixes3 \
+    libxcb1 \
+    libxcb-dri3-0 \
+    libxcb-present0 \
+    libxcb-sync1 \
+    libxcb-xinerama0 \
+    libxcb-xkb1 \
+    libxcb-randr0 \
+    libxcb-render0 \
+    libxcb-shape0 \
+    libxcb-util1 \
+    libxcb-image0 \
+    libxcb-icccm4 \
+    libxcb-keysyms1 \
+    libxcb-render-util0 \
+    libxcb-xfixes0 \
+    libxcb-shm0 \
+    libxcb-cursor0 \
+    # Font packages (Debian Trixie compatible)
+    fonts-liberation \
+    fonts-unifont \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --upgrade pip setuptools wheel
 
@@ -40,8 +79,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir --only-binary=all -r requirements.txt
 
-# Install Playwright browsers and system dependencies
-RUN playwright install --with-deps chromium
+# Install Playwright browsers (system dependencies already installed above)
+RUN playwright install chromium
 
 # Copy application code
 COPY . .
