@@ -137,11 +137,17 @@ export default function AssessmentPage() {
         setForm(data);
         setStep(9); // Go to analysis step to trigger handleSubmit
         
-        // If this is for PDF generation, set PDF generation mode
+        // If this is for PDF generation, set PDF generation mode and auto-trigger analysis
         if (pdfGeneration === 'true') {
           setIsPdfGenerationMode(true);
           setIsChatbotSession(false); // Override chatbot session to show results
           console.log('PDF generation mode - will trigger analysis and show results');
+          
+          // Auto-trigger analysis after a short delay to ensure form is set
+          setTimeout(() => {
+            console.log('PDF generation mode - auto-triggering analysis');
+            handleCalculate();
+          }, 1000);
         }
         
         // Clear the localStorage data

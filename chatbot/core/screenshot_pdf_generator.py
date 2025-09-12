@@ -96,9 +96,8 @@ class ScreenshotPDFGenerator:
             
             # Wait for specific portfolio results content to be visible
             try:
-                # Wait for key portfolio results elements
-                await page.wait_for_selector('.portfolio-results', timeout=15000)
-                await page.wait_for_selector('.life-insurance-needs', timeout=10000)
+                # Wait for key portfolio results elements using data-testid
+                await page.wait_for_selector('[data-testid="portfolio-results"]', timeout=15000)
                 logger.info("Portfolio results content detected")
             except Exception as e:
                 logger.warning(f"Portfolio results selectors not found, proceeding anyway: {e}")
