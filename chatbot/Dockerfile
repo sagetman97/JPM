@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies for Playwright and build tools
+# Install essential build tools and dependencies for PDF/DOCX processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
@@ -10,29 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     # Essential build tools
     pkg-config \
-    # Browser dependencies for Playwright (minimal set)
-    libgobject-2.0-0 \
-    libglib-2.0-0 \
-    libnss3 \
-    libnspr4 \
-    libdbus-1-3 \
-    libcups2 \
-    libgio-2.0-0 \
-    libdrm2 \
-    libexpat1 \
-    libxcb1 \
-    libxkbcommon0 \
-    libx11-6 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libasound2 \
-    # Additional dependencies for PDF/DOCX processing
+    # Dependencies for PDF/DOCX processing
     libxml2-dev \
     libxslt1-dev \
     libffi-dev \
@@ -62,8 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir --only-binary=all -r requirements.txt
 
-# Install Playwright browsers
-RUN playwright install chromium
+# Install Playwright browsers and system dependencies
+RUN playwright install --with-deps chromium
 
 # Copy application code
 COPY . .
