@@ -35,6 +35,21 @@ RUN apt-get update && apt-get install -y \
     libpango-1.0-0 \
     libcairo2 \
     libasound2 \
+    # Additional dependencies for PDF/DOCX processing
+    libxml2-dev \
+    libxslt1-dev \
+    libffi-dev \
+    libssl-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libfreetype6-dev \
+    liblcms2-dev \
+    libwebp-dev \
+    libtiff5-dev \
+    libopenjp2-7-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libxcb1-dev \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --upgrade pip setuptools wheel
 
