@@ -146,7 +146,7 @@ export default function AssessmentPage() {
           // Auto-trigger analysis after a short delay to ensure form is set
           setTimeout(() => {
             console.log('PDF generation mode - auto-triggering analysis');
-            handleCalculate();
+            handleSubmit();
           }, 1000);
         }
         
