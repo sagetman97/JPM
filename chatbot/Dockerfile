@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install essential build tools, PDF/DOCX processing, and Playwright dependencies
+# Install essential build tools and dependencies for PDF/DOCX processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopenblas-dev \
     libhdf5-dev \
     libnetcdf-dev \
-    # Playwright browser dependencies (Debian Trixie compatible)
+    # Minimal browser dependencies for Playwright
     libnss3 \
     libnspr4 \
     libdbus-1-3 \
@@ -52,22 +52,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libxfixes3 \
     libxcb1 \
-    libxcb-dri3-0 \
-    libxcb-present0 \
-    libxcb-sync1 \
-    libxcb-xinerama0 \
-    libxcb-xkb1 \
-    libxcb-randr0 \
-    libxcb-render0 \
-    libxcb-shape0 \
-    libxcb-util1 \
-    libxcb-image0 \
-    libxcb-icccm4 \
-    libxcb-keysyms1 \
-    libxcb-render-util0 \
-    libxcb-xfixes0 \
-    libxcb-shm0 \
-    libxcb-cursor0 \
     # Font packages (Debian Trixie compatible)
     fonts-liberation \
     fonts-unifont \
