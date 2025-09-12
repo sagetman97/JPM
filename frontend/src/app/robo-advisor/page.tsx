@@ -30,7 +30,14 @@ export default function RoboAdvisorPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [sessionId] = useState(() => `session_${crypto.randomUUID()}`);
+  const [sessionId] = useState(() => {
+    // Use crypto.randomUUID if available, otherwise fallback to Date.now() + Math.random()
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return `session_${crypto.randomUUID()}`;
+    } else {
+      return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+  });
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
