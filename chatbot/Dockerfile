@@ -10,23 +10,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     # Essential build tools
     pkg-config \
-    # Browser dependencies for Playwright
+    # Browser dependencies for Playwright (minimal set)
     libgobject-2.0-0 \
     libglib-2.0-0 \
     libnss3 \
-    libnssutil3 \
-    libsmime3 \
     libnspr4 \
     libdbus-1-3 \
-    libatk-1.0-0 \
-    libatk-bridge-2.0-0 \
     libcups2 \
     libgio-2.0-0 \
     libdrm2 \
     libexpat1 \
     libxcb1 \
     libxkbcommon0 \
-    libatspi2.0-0 \
     libx11-6 \
     libxcomposite1 \
     libxdamage1 \
