@@ -505,8 +505,7 @@ export default function AssessmentPage() {
     if (!externalSessionId) return;
     
     try {
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-      const reportContextResponse = await fetch(`${apiBaseUrl}/api/report-context/assessment`, {
+      const reportContextResponse = await fetch('/api/report-context/assessment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -540,11 +539,8 @@ export default function AssessmentPage() {
         return;
       }
       
-      // Get API base URL once for all backend calls
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-      
       // Store analysis data in backend for state persistence
-      const storeResponse = await fetch(`${apiBaseUrl}/api/report-context/assessment`, {
+      const storeResponse = await fetch('/api/report-context/assessment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -563,7 +559,7 @@ export default function AssessmentPage() {
       }
 
       // Store comprehensive report context for chatbot
-      const reportContextResponse = await fetch(`${apiBaseUrl}/api/report-context/assessment`, {
+      const reportContextResponse = await fetch('/api/report-context/assessment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
