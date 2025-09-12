@@ -199,8 +199,9 @@ export default function RoboAdvisorPage() {
   const downloadPDF = async (pdfId: string, filename: string) => {
     console.log('downloadPDF called with:', { pdfId, filename });
     try {
-      // Use the chatbot API proxy route instead of direct chatbot URL
-      const url = `/chatbot-api/api/chat/pdf/${pdfId}`;
+      // Use the chatbot URL directly
+      const chatbotUrl = process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001';
+      const url = `${chatbotUrl}/api/chat/pdf/${pdfId}`;
       console.log('Fetching PDF from URL:', url);
       const response = await fetch(url);
       console.log('Response status:', response.status);
