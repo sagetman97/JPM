@@ -13,7 +13,7 @@ const nextConfig = {
       },
       {
         source: '/chatbot-api/:path*',
-        destination: `${chatbotUrl}/api/:path*`,
+        destination: `${chatbotUrl}/:path*`,
       },
     ];
   },
