@@ -794,7 +794,7 @@ class ChatbotOrchestrator:
                     return await self._handle_file_analysis(query, context, routing_decision)
                 else:
                     # Regular external tool handling
-                    tool_response = await self.tool_integrator.route_to_external_tool(
+                    tool_response = await self.smart_router.route_to_external_tool(
                         routing_decision.tool_type, context
                     )
                     # Store the tool URL in the routing decision metadata for frontend access
