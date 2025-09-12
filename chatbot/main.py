@@ -665,7 +665,7 @@ async def handle_tool_completion(request: ToolCompletionRequest):
         if tool_session and chatbot_orchestrator:
             try:
                 # Get the session from the orchestrator
-                session = chatbot_orchestrator._get_or_create_session(tool_session.chat_session_id)
+                session = await chatbot_orchestrator._get_or_create_session(tool_session.chat_session_id)
                 
                 # Add the tool results to conversation history
                 if hasattr(session.context, 'simple_history') and session.context.simple_history:
@@ -1325,7 +1325,7 @@ async def test_orchestrator_step_by_step(request: ChatRequest):
             intent_result = await asyncio.wait_for(
                 chatbot_orchestrator.intent_classifier.classify_intent_semantically(
                     message.content, 
-                    chatbot_orchestrator._get_or_create_session(request.session_id).get_context()
+                    (await chatbot_orchestrator._get_or_create_session(request.session_id)).get_context()
                 ),
                 timeout=10.0
             )
@@ -1355,7 +1355,7 @@ async def test_orchestrator_step_by_step(request: ChatRequest):
             routing_decision = await asyncio.wait_for(
                 chatbot_orchestrator.smart_router.route_query_semantically(
                     intent_result, 
-                    chatbot_orchestrator._get_or_create_session(request.session_id).get_context()
+                    (await chatbot_orchestrator._get_or_create_session(request.session_id)).get_context()
                 ),
                 timeout=10.0
             )
@@ -1386,7 +1386,7 @@ async def test_orchestrator_step_by_step(request: ChatRequest):
                 chatbot_orchestrator._generate_response_content(
                     routing_decision, 
                     message.content, 
-                    chatbot_orchestrator._get_or_create_session(request.session_id).get_context(),
+                    (await chatbot_orchestrator._get_or_create_session(request.session_id)).get_context(),
                     intent_result
                 ),
                 timeout=15.0
@@ -1460,7 +1460,7 @@ async def test_intent_classifier_only(request: ChatRequest):
         # Test intent classifier directly
         try:
             import asyncio
-            context = chatbot_orchestrator._get_or_create_session(request.session_id).get_context()
+            context = (await chatbot_orchestrator._get_or_create_session(request.session_id)).get_context()
             
             logger.info(f"🎯 INTENT TEST: Calling intent classifier...")
             intent_result = await asyncio.wait_for(
