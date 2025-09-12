@@ -54,7 +54,7 @@ services:
     environment:
       - NEXT_PUBLIC_API_BASE_URL=http://backend:8000
       - NEXT_PUBLIC_CHATBOT_URL=http://chatbot:8001
-      - NEXT_PUBLIC_CHATBOT_WS_URL=ws://chatbot:8001
+      - NEXT_PUBLIC_CHATBOT_WS_URL=ws://54.242.96.251:8001
     depends_on:
       - backend
       - chatbot
