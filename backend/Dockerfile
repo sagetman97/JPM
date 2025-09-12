@@ -2,23 +2,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies and upgrade pip/setuptools
+# Install minimal system dependencies (backend doesn't use scientific computing)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     # Essential build tools
     pkg-config \
-    # Scientific computing dependencies for numpy, pandas, scipy, scikit-learn
-    libblas-dev \
-    liblapack-dev \
-    gfortran \
-    libgfortran5 \
-    libopenblas-dev \
-    # Data format libraries
-    libhdf5-dev \
-    libnetcdf-dev \
-    # Additional dependencies for data processing
-    libxml2-dev \
-    libxslt1-dev \
+    # Basic dependencies for HTTP client and file processing
     libffi-dev \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/* \
