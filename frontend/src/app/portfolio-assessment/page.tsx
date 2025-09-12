@@ -298,8 +298,7 @@ export default function PortfolioAssessmentPage() {
             // Check if we have analysis data stored in backend for this session
             if (sessionId) {
               try {
-                const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://backend:8000';
-                const response = await fetch(`${apiBaseUrl}/api/pdf/portfolio-data/${sessionId}`);
+                const response = await fetch(`/api/pdf/portfolio-data/${sessionId}`);
                 if (response.ok) {
                   const storedData = await response.json();
                   console.log('Restoring analysis state from backend:', storedData);
@@ -427,7 +426,7 @@ export default function PortfolioAssessmentPage() {
 
   // Enhanced file processing with comprehensive error handling
   const processFilesEfficiently = async (files: File[]): Promise<any> => {
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://backend:8000';
+    // Use relative path for API calls (Next.js proxy handles routing)
     
     let combinedData: any = {
       household_profile: {
@@ -1214,11 +1213,8 @@ export default function PortfolioAssessmentPage() {
         return;
       }
       
-      // Get API base URL once for all backend calls
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://backend:8000';
-      
       // Store analysis data in backend for state persistence
-      const storeResponse = await fetch(`${apiBaseUrl}/api/pdf/portfolio-data`, {
+      const storeResponse = await fetch('/api/pdf/portfolio-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1237,7 +1233,7 @@ export default function PortfolioAssessmentPage() {
       }
 
       // Store comprehensive report context for chatbot
-      const reportContextResponse = await fetch(`${apiBaseUrl}/api/report-context/portfolio`, {
+      const reportContextResponse = await fetch('/api/report-context/portfolio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
