@@ -254,8 +254,7 @@ export default function RoboAdvisorPage() {
     } else {
       // Fallback to HTTP API if WebSocket is not available
       try {
-        const chatbotUrl = process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001';
-        const response = await fetch(`${chatbotUrl}/api/chat/process`, {
+        const response = await fetch('/chatbot-api/api/chat/process', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -331,7 +330,7 @@ export default function RoboAdvisorPage() {
           formData.append('file', file);
           formData.append('session_id', sessionId);
           
-          const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001'}/api/chat/file/upload`, {
+          const uploadResponse = await fetch('/chatbot-api/api/chat/file/upload', {
             method: 'POST',
             body: formData,
           });
@@ -381,7 +380,7 @@ export default function RoboAdvisorPage() {
           formData.append('file', file);
           formData.append('session_id', sessionId);
           
-          const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:8001'}/api/chat/file/upload`, {
+          const uploadResponse = await fetch('/chatbot-api/api/chat/file/upload', {
             method: 'POST',
             body: formData,
           });
