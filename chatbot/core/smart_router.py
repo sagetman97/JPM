@@ -487,9 +487,9 @@ class ToolIntegrator:
             
             # Create tool session if session linker is available
             external_session_id = None
-            if self.session_linker:
+            if self.tool_integrator.session_linker:
                 try:
-                    external_session_id = await self.session_linker.create_tool_session(
+                    external_session_id = await self.tool_integrator.session_linker.create_tool_session(
                         context.session_id, 
                         tool_type
                     )
