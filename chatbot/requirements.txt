@@ -15,10 +15,9 @@ openai>=1.99.9
 # Vector database
 qdrant-client==1.7.0
 
-# Document processing
+# Document processing (actually used in file_processor.py)
 PyPDF2==3.0.1
 python-docx==1.1.0
-openpyxl==3.1.2
 pandas>=2.1.4
 reportlab==4.0.4
 
